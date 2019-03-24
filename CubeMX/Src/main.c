@@ -91,9 +91,13 @@ int main(void)
   MX_GPIO_Init();
   MX_RTC_Init();
   MX_TIM1_Init();
+  MX_TIM2_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-
+  HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_3);
+  HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_4);
+  HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_3);
+  HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_4);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -101,9 +105,10 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	const int x = HAL_GPIO_ReadPin(DCF_IN2_GPIO_Port, DCF_IN2_Pin);
-	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, x);
+
     /* USER CODE BEGIN 3 */
+		const int x = HAL_GPIO_ReadPin(DCF_IN1_GPIO_Port, DCF_IN1_Pin);
+		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, x);
   }
   /* USER CODE END 3 */
 }
