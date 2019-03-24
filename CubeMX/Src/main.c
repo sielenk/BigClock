@@ -101,7 +101,8 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+	const int x = HAL_GPIO_ReadPin(DCF_IN2_GPIO_Port, DCF_IN2_Pin);
+	HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, x);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
