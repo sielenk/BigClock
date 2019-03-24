@@ -68,8 +68,6 @@ void Error_Handler(void);
 #define BCD_C_GPIO_Port GPIOA
 #define BCD_D_Pin GPIO_PIN_3
 #define BCD_D_GPIO_Port GPIOA
-#define DCF_IN1_Pin GPIO_PIN_1
-#define DCF_IN1_GPIO_Port GPIOB
 #define DCF_IN2_Pin GPIO_PIN_11
 #define DCF_IN2_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
