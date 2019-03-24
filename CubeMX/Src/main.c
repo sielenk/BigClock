@@ -58,6 +58,22 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+{
+	static volatile int x;
+	static volatile int y;
+
+	switch (htim->Channel) {
+	case HAL_TIM_ACTIVE_CHANNEL_3:
+		x = htim->Instance->CCR3;
+		break;
+	case HAL_TIM_ACTIVE_CHANNEL_4:
+		y = htim->Instance->CCR4;
+		break;
+	default:
+		break;
+	}
+}
 
 /* USER CODE END 0 */
 
