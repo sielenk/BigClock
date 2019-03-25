@@ -58,17 +58,92 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+typedef struct {
+	unsigned int zero :1;
+	unsigned int reserved1 :13;
+	unsigned int call :1;
+	unsigned int changeMezMesz :1;
+	unsigned int isMesz :1;
+	unsigned int isMez :1;
+	unsigned int one :1;
+	unsigned int minute :4;
+	unsigned int minute10 :3;
+	unsigned int minuteP :1;
+	unsigned int hour :4;
+	unsigned int hour10 :3;
+	unsigned int hourP :1;
+	unsigned int day :4;
+	unsigned int day10 :2;
+	unsigned int weekday :3;
+	unsigned int month :4;
+	unsigned int month10 :1;
+	unsigned int year :4;
+	unsigned int year10 :4;
+} DCF;
+
+static int buffer[120] = { 0 };
+static int* p = buffer;
+
+void bar(DCF* dcf) {
+  volatile int x = dcf->day + 10 * dcf->day10;
+}
+
+void foo(int pulse, int delta) {
+	const int pulseOk = (50 <= pulse && pulse <= 250);
+	const int deltaOk1 = (950 <= delta && delta <= 1050);
+	const int deltaOk2 = (1950 <= delta && delta <= 2050);
+	const int deltaOk = deltaOk1 | deltaOk2;
+	const int isLast = deltaOk2;
+
+	if (pulseOk && deltaOk) {
+		*p++ = pulse;
+
+		if (isLast) {
+			const int count = p - buffer;
+			p = buffer;
+
+			if (count == 59) {
+				union {
+					unsigned int buffer[2];
+					DCF dcf;
+				} u = { 0 };
+				for (int i = 0; i < 59; ++i) {
+					if (buffer[i] > 150) {
+						u.buffer[i / 32] |= 1u << (i % 32);
+					}
+				}
+				bar(&u.dcf);
+			}
+		} else if (p > buffer + 120) {
+			p = buffer;
+		}
+	} else {
+		p = buffer;
+	}
+}
+
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
-	static volatile int x;
-	static volatile int y;
+	if (htim != &htim3) {
+		return;
+	}
+
+	static int t;
+	static int pulse;
 
 	switch (htim->Channel) {
 	case HAL_TIM_ACTIVE_CHANNEL_3:
-		x = htim->Instance->CCR3;
+		pulse = htim->Instance->CCR3 - t;
+		pulse += 65536 * (pulse < 0);
 		break;
-	case HAL_TIM_ACTIVE_CHANNEL_4:
-		y = htim->Instance->CCR4;
+	case HAL_TIM_ACTIVE_CHANNEL_4: {
+		const int newT = htim->Instance->CCR4;
+		int delta = newT - t;
+		delta += 65536 * (delta < 0);
+		foo(pulse, delta);
+		t = newT;
 		break;
+	}
 	default:
 		break;
 	}
@@ -120,8 +195,11 @@ int main(void) {
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
-		const int x = HAL_GPIO_ReadPin(DCF_IN1_GPIO_Port, DCF_IN1_Pin);
+		const int x = HAL_GPIO_ReadPin(DCF_IN2_GPIO_Port, DCF_IN2_Pin);
 		HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, x);
+
+		//ITM_SendChar('x');
+		//ITM_SendChar('\n');
 	}
 	/* USER CODE END 3 */
 }
