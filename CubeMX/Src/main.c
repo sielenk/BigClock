@@ -61,35 +61,72 @@ void SystemClock_Config(void);
 
 typedef struct {
 	unsigned int zero :1;
-	unsigned int reserved1 :13;
+	unsigned int :14;
 	unsigned int call :1;
 	unsigned int changeMezMesz :1;
 	unsigned int isMesz :1;
 	unsigned int isMez :1;
+	unsigned int changeSec :1;
 	unsigned int one :1;
-	unsigned int minute :4;
+	unsigned int minute01 :4;
 	unsigned int minute10 :3;
 	unsigned int minuteP :1;
-	unsigned int hour :4;
-	unsigned int hour10 :3;
+	unsigned int hour01 :4;
+	unsigned int hour10 :2;
 	unsigned int hourP :1;
-	unsigned int day :4;
+	unsigned int day01 :4;
 	unsigned int day10 :2;
 	unsigned int weekday :3;
-	unsigned int month :4;
+	unsigned int month01 :4;
 	unsigned int month10 :1;
-	unsigned int year :4;
+	unsigned int year01 :4;
 	unsigned int year10 :4;
-} DCF;
+	unsigned int dateP :1;
+}__attribute__((packed)) DCF;
+
+typedef struct {
+	unsigned int zero :1;
+	unsigned int :19;
+	unsigned int one :1;
+	unsigned int minute :8;
+	unsigned int hour :7;
+	unsigned int date :23;
+}__attribute__((packed)) DCFCheck;
 
 static int buffer[120] = { 0 };
 static int* p = buffer;
 
-void bar(DCF* dcf) {
-  volatile int x = dcf->day + 10 * dcf->day10;
+static int parity(int n) {
+	n ^= n >> 1;
+	n ^= n >> 2;
+	n ^= n >> 4;
+	n ^= n >> 8;
+	n ^= n >> 16;
+
+	return n & 1;
 }
 
-void foo(int pulse, int delta) {
+static void handleTelegram(DCF* dcf) {
+	DCFCheck* check = (DCFCheck*) dcf;
+
+	if (!check->zero && check->one && !parity(check->minute)
+			&& !parity(check->hour) && !parity(check->date)) {
+		RTC_TimeTypeDef sTime = { 0 };
+		RTC_DateTypeDef sDate = { 0 };
+
+		sTime.Hours = 10 * dcf->hour10 + dcf->hour01;
+		sTime.Minutes = 10 * dcf->minute10 + dcf->minute01;
+		sDate.Date = 10 * dcf->day10 + dcf->day01;
+		sDate.Month = 10 * dcf->month10 + dcf->month01;
+		sDate.Year = 10 * dcf->year10 + dcf->year01;
+		sDate.WeekDay = dcf->weekday % 7;
+
+		HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD);
+		HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD);
+	}
+}
+
+static void addBit(int pulse, int delta) {
 	const int pulseOk = (50 <= pulse && pulse <= 250);
 	const int deltaOk1 = (950 <= delta && delta <= 1050);
 	const int deltaOk2 = (1950 <= delta && delta <= 2050);
@@ -113,7 +150,7 @@ void foo(int pulse, int delta) {
 						u.buffer[i / 32] |= 1u << (i % 32);
 					}
 				}
-				bar(&u.dcf);
+				handleTelegram(&u.dcf);
 			}
 		} else if (p > buffer + 120) {
 			p = buffer;
@@ -140,8 +177,9 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 		const int newT = htim->Instance->CCR4;
 		int delta = newT - t;
 		delta += 65536 * (delta < 0);
-		foo(pulse, delta);
+		addBit(pulse, delta);
 		t = newT;
+		pulse = 0;
 		break;
 	}
 	default:
@@ -179,12 +217,8 @@ int main(void) {
 	/* Initialize all configured peripherals */
 	MX_GPIO_Init();
 	MX_RTC_Init();
-	MX_TIM1_Init();
-	MX_TIM2_Init();
 	MX_TIM3_Init();
 	/* USER CODE BEGIN 2 */
-	HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_3);
-	HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_4);
 	HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_3);
 	HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_4);
 	/* USER CODE END 2 */
