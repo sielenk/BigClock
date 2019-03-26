@@ -93,9 +93,6 @@ typedef struct {
 	unsigned int date :23;
 }__attribute__((packed)) DCFCheck;
 
-static int buffer[120] = { 0 };
-static int* p = buffer;
-
 static int parity(int n) {
 	n ^= n >> 1;
 	n ^= n >> 2;
@@ -126,7 +123,12 @@ static void handleTelegram(DCF* dcf) {
 	}
 }
 
-static void addBit(int pulse, int delta) {
+#define BUFFER_SIZE 65
+
+static void addBit(unsigned short pulse, unsigned short delta) {
+	static unsigned short buffer[BUFFER_SIZE] = { 0 };
+	static unsigned short* p = buffer;
+
 	const int pulseOk = (50 <= pulse && pulse <= 250);
 	const int deltaOk1 = (950 <= delta && delta <= 1050);
 	const int deltaOk2 = (1950 <= delta && delta <= 2050);
@@ -145,14 +147,16 @@ static void addBit(int pulse, int delta) {
 					unsigned int buffer[2];
 					DCF dcf;
 				} u = { 0 };
+
 				for (int i = 0; i < 59; ++i) {
 					if (buffer[i] > 150) {
 						u.buffer[i / 32] |= 1u << (i % 32);
 					}
 				}
+
 				handleTelegram(&u.dcf);
 			}
-		} else if (p > buffer + 120) {
+		} else if (p > buffer + BUFFER_SIZE) {
 			p = buffer;
 		}
 	} else {
@@ -165,19 +169,16 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 		return;
 	}
 
-	static int t;
-	static int pulse;
+	static unsigned short t;
+	static unsigned short pulse;
 
 	switch (htim->Channel) {
 	case HAL_TIM_ACTIVE_CHANNEL_3:
 		pulse = htim->Instance->CCR3 - t;
-		pulse += 65536 * (pulse < 0);
 		break;
 	case HAL_TIM_ACTIVE_CHANNEL_4: {
-		const int newT = htim->Instance->CCR4;
-		int delta = newT - t;
-		delta += 65536 * (delta < 0);
-		addBit(pulse, delta);
+		const unsigned short newT = htim->Instance->CCR4;
+		addBit(pulse, newT - t);
 		t = newT;
 		pulse = 0;
 		break;
