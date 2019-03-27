@@ -165,26 +165,20 @@ static void addBit(unsigned short pulse, unsigned short delta) {
 }
 
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
-	if (htim != &htim3) {
-		return;
-	}
+	if (htim == &htim3) {
+		static unsigned short pulseStart;
 
-	static unsigned short t;
-	static unsigned short pulse;
-
-	switch (htim->Channel) {
-	case HAL_TIM_ACTIVE_CHANNEL_3:
-		pulse = htim->Instance->CCR3 - t;
-		break;
-	case HAL_TIM_ACTIVE_CHANNEL_4: {
-		const unsigned short newT = htim->Instance->CCR4;
-		addBit(pulse, newT - t);
-		t = newT;
-		pulse = 0;
-		break;
-	}
-	default:
-		break;
+		switch (htim->Channel) {
+		case HAL_TIM_ACTIVE_CHANNEL_4: {
+			const unsigned short pulseEnd = htim->Instance->CCR3;
+			const unsigned short newPulseStart = htim->Instance->CCR4;
+			addBit(pulseEnd - pulseStart, newPulseStart - pulseStart);
+			pulseStart = newPulseStart;
+			break;
+		}
+		default:
+			break;
+		}
 	}
 }
 
@@ -220,7 +214,7 @@ int main(void) {
 	MX_RTC_Init();
 	MX_TIM3_Init();
 	/* USER CODE BEGIN 2 */
-	HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_3);
+	HAL_TIM_IC_Start(&htim3, TIM_CHANNEL_3);
 	HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_4);
 	/* USER CODE END 2 */
 
