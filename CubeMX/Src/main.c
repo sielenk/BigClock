@@ -26,7 +26,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "dcf.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -59,109 +59,19 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-typedef struct {
-	unsigned int zero :1;
-	unsigned int :14;
-	unsigned int call :1;
-	unsigned int changeMezMesz :1;
-	unsigned int isMesz :1;
-	unsigned int isMez :1;
-	unsigned int changeSec :1;
-	unsigned int one :1;
-	unsigned int minute01 :4;
-	unsigned int minute10 :3;
-	unsigned int minuteP :1;
-	unsigned int hour01 :4;
-	unsigned int hour10 :2;
-	unsigned int hourP :1;
-	unsigned int day01 :4;
-	unsigned int day10 :2;
-	unsigned int weekday :3;
-	unsigned int month01 :4;
-	unsigned int month10 :1;
-	unsigned int year01 :4;
-	unsigned int year10 :4;
-	unsigned int dateP :1;
-}__attribute__((packed)) DCF;
+void dcf_handleTelegram(DCF* dcf) {
+	RTC_TimeTypeDef sTime = { 0 };
+	RTC_DateTypeDef sDate = { 0 };
 
-typedef struct {
-	unsigned int zero :1;
-	unsigned int :19;
-	unsigned int one :1;
-	unsigned int minute :8;
-	unsigned int hour :7;
-	unsigned int date :23;
-}__attribute__((packed)) DCFCheck;
+	sTime.Hours = 10 * dcf->hour10 + dcf->hour01;
+	sTime.Minutes = 10 * dcf->minute10 + dcf->minute01;
+	sDate.Date = 10 * dcf->day10 + dcf->day01;
+	sDate.Month = 10 * dcf->month10 + dcf->month01;
+	sDate.Year = 10 * dcf->year10 + dcf->year01;
+	sDate.WeekDay = dcf->weekday % 7;
 
-static int parity(int n) {
-	n ^= n >> 1;
-	n ^= n >> 2;
-	n ^= n >> 4;
-	n ^= n >> 8;
-	n ^= n >> 16;
-
-	return n & 1;
-}
-
-static void handleTelegram(DCF* dcf) {
-	DCFCheck* check = (DCFCheck*) dcf;
-
-	if (!check->zero && check->one && !parity(check->minute)
-			&& !parity(check->hour) && !parity(check->date)) {
-		RTC_TimeTypeDef sTime = { 0 };
-		RTC_DateTypeDef sDate = { 0 };
-
-		sTime.Hours = 10 * dcf->hour10 + dcf->hour01;
-		sTime.Minutes = 10 * dcf->minute10 + dcf->minute01;
-		sDate.Date = 10 * dcf->day10 + dcf->day01;
-		sDate.Month = 10 * dcf->month10 + dcf->month01;
-		sDate.Year = 10 * dcf->year10 + dcf->year01;
-		sDate.WeekDay = dcf->weekday % 7;
-
-		HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD);
-		HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD);
-	}
-}
-
-#define BUFFER_SIZE 65
-
-static void addBit(unsigned short pulse, unsigned short delta) {
-	static unsigned short buffer[BUFFER_SIZE] = { 0 };
-	static unsigned short* p = buffer;
-
-	const int pulseOk = (50 <= pulse && pulse <= 250);
-	const int deltaOk1 = (950 <= delta && delta <= 1050);
-	const int deltaOk2 = (1950 <= delta && delta <= 2050);
-	const int deltaOk = deltaOk1 | deltaOk2;
-	const int isLast = deltaOk2;
-
-	if (pulseOk && deltaOk) {
-		*p++ = pulse;
-
-		if (isLast) {
-			const int count = p - buffer;
-			p = buffer;
-
-			if (count == 59) {
-				union {
-					unsigned long long buffer;
-					DCF dcf;
-				} u = { 0 };
-
-				for (int i = 0; i < 59; ++i) {
-					if (buffer[i] > 150) {
-						u.buffer |= 1ull << i;
-					}
-				}
-
-				handleTelegram(&u.dcf);
-			}
-		} else if (p > buffer + BUFFER_SIZE) {
-			p = buffer;
-		}
-	} else {
-		p = buffer;
-	}
+	HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD);
+	HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD);
 }
 
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
@@ -172,7 +82,7 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 
 		const unsigned short pulseEnd = htim->Instance->CCR3;
 		const unsigned short newPulseStart = htim->Instance->CCR4;
-		addBit(pulseEnd - pulseStart, newPulseStart - pulseStart);
+		dcf_addBit(pulseEnd - pulseStart, newPulseStart - pulseStart);
 		pulseStart = newPulseStart;
 	}
 }
