@@ -168,17 +168,12 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim3) {
 		static unsigned short pulseStart;
 
-		switch (htim->Channel) {
-		case HAL_TIM_ACTIVE_CHANNEL_4: {
-			const unsigned short pulseEnd = htim->Instance->CCR3;
-			const unsigned short newPulseStart = htim->Instance->CCR4;
-			addBit(pulseEnd - pulseStart, newPulseStart - pulseStart);
-			pulseStart = newPulseStart;
-			break;
-		}
-		default:
-			break;
-		}
+		assert_param(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4);
+
+		const unsigned short pulseEnd = htim->Instance->CCR3;
+		const unsigned short newPulseStart = htim->Instance->CCR4;
+		addBit(pulseEnd - pulseStart, newPulseStart - pulseStart);
+		pulseStart = newPulseStart;
 	}
 }
 
