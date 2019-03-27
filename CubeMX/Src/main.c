@@ -144,13 +144,13 @@ static void addBit(unsigned short pulse, unsigned short delta) {
 
 			if (count == 59) {
 				union {
-					unsigned int buffer[2];
+					unsigned long long buffer;
 					DCF dcf;
 				} u = { 0 };
 
 				for (int i = 0; i < 59; ++i) {
 					if (buffer[i] > 150) {
-						u.buffer[i / 32] |= 1u << (i % 32);
+						u.buffer |= 1ull << i;
 					}
 				}
 
