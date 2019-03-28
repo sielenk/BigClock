@@ -21,20 +21,18 @@ extern "C" {
 void dcf_addBit(unsigned short pulse, unsigned short delta);
 
 typedef struct {
-	unsigned int zero :1;
-	unsigned int :14;
-	unsigned int call :1;
+	unsigned int :16;
 	unsigned int changeMezMesz :1;
 	unsigned int isMesz :1;
 	unsigned int isMez :1;
 	unsigned int changeSec :1;
-	unsigned int one :1;
+	unsigned int :1;
 	unsigned int minute01 :4;
 	unsigned int minute10 :3;
-	unsigned int minuteP :1;
+	unsigned int :1;
 	unsigned int hour01 :4;
 	unsigned int hour10 :2;
-	unsigned int hourP :1;
+	unsigned int :1;
 	unsigned int day01 :4;
 	unsigned int day10 :2;
 	unsigned int weekday :3;
@@ -42,7 +40,6 @@ typedef struct {
 	unsigned int month10 :1;
 	unsigned int year01 :4;
 	unsigned int year10 :4;
-	unsigned int dateP :1;
 }__attribute__((packed)) DCF;
 
 void dcf_handleTelegram(DCF* dcf);
