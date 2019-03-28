@@ -33,11 +33,14 @@ static int parity(int n) {
 	return n & 1;
 }
 
-#define BUFFER_SIZE 65
-
 void dcf_addBit(unsigned short pulse, unsigned short delta) {
-	static unsigned short buffer[BUFFER_SIZE] = { 0 };
-	static unsigned short* p = buffer;
+	static union {
+		unsigned long long bits;
+		DCFCheck check;
+		DCF dcf;
+	} buffer = { 0 };
+
+	static signed char offset = -1;
 
 	const int pulseOk = (50 <= pulse && pulse <= 250);
 	const int deltaOk1 = (950 <= delta && delta <= 1050);
@@ -46,35 +49,30 @@ void dcf_addBit(unsigned short pulse, unsigned short delta) {
 	const int isLast = deltaOk2;
 
 	if (pulseOk && deltaOk) {
-		*p++ = pulse;
+		if (0 <= offset && offset <= 60) {
+			if (pulse > 150) {
+				buffer.bits |= 1ull << offset;
+			}
+			++offset;
+		} else {
+			offset = -1;
+		}
 
 		if (isLast) {
-			const int count = p - buffer;
-			p = buffer;
+			if (offset == 59 || offset == 60) {
+				if (!buffer.check.zero && buffer.check.one
+						&& !parity(buffer.check.minute)
+						&& !parity(buffer.check.hour)
+						&& !parity(buffer.check.date)) {
 
-			if (count == 59) {
-				union {
-					unsigned long long buffer;
-					DCF dcf;
-					DCFCheck check;
-				} u = { 0 };
-
-				for (int i = 0; i < 59; ++i) {
-					if (buffer[i] > 150) {
-						u.buffer |= 1ull << i;
-					}
-				}
-
-				if (!u.check.zero && u.check.one && !parity(u.check.minute)
-						&& !parity(u.check.hour) && !parity(u.check.date)) {
-
-					dcf_handleTelegram(&u.dcf);
+					dcf_handleTelegram(&buffer.dcf);
 				}
 			}
-		} else if (p > buffer + BUFFER_SIZE) {
-			p = buffer;
+
+			offset = 0;
+			buffer.bits = 0;
 		}
 	} else {
-		p = buffer;
+		offset = -1;
 	}
 }
