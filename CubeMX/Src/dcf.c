@@ -20,6 +20,7 @@ typedef struct {
 	unsigned int minute :8;
 	unsigned int hour :7;
 	unsigned int date :23;
+	unsigned int oneOpt :1;
 }__attribute__((packed)) DCFCheck;
 
 static int parity(int n) {
