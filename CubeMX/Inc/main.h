@@ -68,6 +68,16 @@ void Error_Handler(void);
 #define BCD_C_GPIO_Port GPIOA
 #define BCD_D_Pin GPIO_PIN_3
 #define BCD_D_GPIO_Port GPIOA
+#define SEG_H10_Pin GPIO_PIN_4
+#define SEG_H10_GPIO_Port GPIOA
+#define SEG_H01_Pin GPIO_PIN_5
+#define SEG_H01_GPIO_Port GPIOA
+#define SEG_M10_Pin GPIO_PIN_6
+#define SEG_M10_GPIO_Port GPIOA
+#define SEG_M01_Pin GPIO_PIN_7
+#define SEG_M01_GPIO_Port GPIOA
+#define LIGHT_LEVEL_Pin GPIO_PIN_0
+#define LIGHT_LEVEL_GPIO_Port GPIOB
 #define DCF_IN1_Pin GPIO_PIN_1
 #define DCF_IN1_GPIO_Port GPIOB
 #define DCF_IN2_Pin GPIO_PIN_11
