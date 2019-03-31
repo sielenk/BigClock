@@ -20,7 +20,7 @@ typedef struct {
 	unsigned int minute :8;
 	unsigned int hour :7;
 	unsigned int date :23;
-	unsigned int oneOpt :1;
+	unsigned int leapSecZero :1;
 }__attribute__((packed)) DCFCheck;
 
 static int parity(int n) {
@@ -67,6 +67,8 @@ void dcf_addBit(unsigned short pulse, unsigned short delta) {
 
 					dcf_handleTelegram(&buffer.dcf);
 				}
+			} else {
+				dcf_handleTelegram(0);
 			}
 
 			offset = 0;

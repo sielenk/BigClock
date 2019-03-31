@@ -62,29 +62,16 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-void dcf_handleTelegram(DCF* dcf) {
-	RTC_TimeTypeDef sTime = { 0 };
-	RTC_DateTypeDef sDate = { 0 };
+static unsigned short pulseStart;
+static unsigned short minuteStart;
 
-	sTime.Hours = 10 * dcf->hour10 + dcf->hour01;
-	sTime.Minutes = 10 * dcf->minute10 + dcf->minute01;
-	sDate.Date = 10 * dcf->day10 + dcf->day01;
-	sDate.Month = 10 * dcf->month10 + dcf->month01;
-	sDate.Year = 10 * dcf->year10 + dcf->year01;
-	sDate.WeekDay = dcf->weekday % 7;
-
-	HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD);
-	HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD);
-}
+static void adjustTimer(int error);
 
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
-	if (htim == &htim3) {
-		static unsigned short pulseStart;
-
-		assert_param(htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4);
-
+	if (htim == &htim3 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4) {
 		const unsigned short pulseEnd = htim->Instance->CCR3;
 		const unsigned short newPulseStart = htim->Instance->CCR4;
+
 		dcf_addBit(pulseEnd - pulseStart, newPulseStart - pulseStart);
 		pulseStart = newPulseStart;
 
@@ -92,8 +79,39 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 	}
 }
 
+void dcf_handleTelegram(DCF* dcf) {
+	if (dcf) {
+		RTC_TimeTypeDef sTime = { 0 };
+		RTC_DateTypeDef sDate = { 0 };
+
+		sTime.Hours = 10 * dcf->hour10 + dcf->hour01;
+		sTime.Minutes = 10 * dcf->minute10 + dcf->minute01;
+		sDate.Date = 10 * dcf->day10 + dcf->day01;
+		sDate.Month = 10 * dcf->month10 + dcf->month01;
+		sDate.Year = 10 * dcf->year10 + dcf->year01;
+		sDate.WeekDay = dcf->weekday % 7;
+
+		HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD);
+		HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD);
+	}
+
+	const unsigned short newMinuteStart = htim3.Instance->CNT;
+	const unsigned short minuteLength = newMinuteStart - minuteStart;
+	const int minuteError = minuteLength - 60000;
+
+	if (-600 <= minuteError && minuteError <= 600) {
+		adjustTimer(minuteError);
+	}
+
+	minuteStart = newMinuteStart;
+}
+
 void HAL_RTCEx_RTCEventCallback(RTC_HandleTypeDef *hrtc) {
 	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+}
+
+void adjustTimer(int error) {
+
 }
 
 /* USER CODE END 0 */

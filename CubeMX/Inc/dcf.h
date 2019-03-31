@@ -22,10 +22,10 @@ void dcf_addBit(unsigned short pulse, unsigned short delta);
 
 typedef struct {
 	unsigned int :16;
-	unsigned int changeMezMesz :1;
+	unsigned int dstChangeComing :1;
 	unsigned int isMesz :1;
 	unsigned int isMez :1;
-	unsigned int changeSec :1;
+	unsigned int leapSecComing :1;
 	unsigned int :1;
 	unsigned int minute01 :4;
 	unsigned int minute10 :3;
