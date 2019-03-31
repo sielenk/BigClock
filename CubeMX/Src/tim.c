@@ -91,10 +91,10 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* tim_baseHandle)
     /**TIM3 GPIO Configuration    
     PB1     ------> TIM3_CH4 
     */
-    GPIO_InitStruct.Pin = DCF_IN1_Pin;
+    GPIO_InitStruct.Pin = DCF_IN_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
     GPIO_InitStruct.Pull = GPIO_PULLUP;
-    HAL_GPIO_Init(DCF_IN1_GPIO_Port, &GPIO_InitStruct);
+    HAL_GPIO_Init(DCF_IN_GPIO_Port, &GPIO_InitStruct);
 
     /* TIM3 interrupt Init */
     HAL_NVIC_SetPriority(TIM3_IRQn, 0, 0);
@@ -119,7 +119,7 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* tim_baseHandle)
     /**TIM3 GPIO Configuration    
     PB1     ------> TIM3_CH4 
     */
-    HAL_GPIO_DeInit(DCF_IN1_GPIO_Port, DCF_IN1_Pin);
+    HAL_GPIO_DeInit(DCF_IN_GPIO_Port, DCF_IN_Pin);
 
     /* TIM3 interrupt Deinit */
     HAL_NVIC_DisableIRQ(TIM3_IRQn);

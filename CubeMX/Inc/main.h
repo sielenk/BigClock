@@ -78,10 +78,8 @@ void Error_Handler(void);
 #define SEG_M01_GPIO_Port GPIOA
 #define LIGHT_LEVEL_Pin GPIO_PIN_0
 #define LIGHT_LEVEL_GPIO_Port GPIOB
-#define DCF_IN1_Pin GPIO_PIN_1
-#define DCF_IN1_GPIO_Port GPIOB
-#define DCF_IN2_Pin GPIO_PIN_11
-#define DCF_IN2_GPIO_Port GPIOB
+#define DCF_IN_Pin GPIO_PIN_1
+#define DCF_IN_GPIO_Port GPIOB
 #define TX_Pin GPIO_PIN_9
 #define TX_GPIO_Port GPIOA
 #define RX_Pin GPIO_PIN_10
