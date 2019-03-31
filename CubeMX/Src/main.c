@@ -70,13 +70,13 @@ static void adjustTimer(int error);
 
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim3 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4) {
+		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+
 		const unsigned short pulseEnd = htim->Instance->CCR3;
 		const unsigned short newPulseStart = htim->Instance->CCR4;
 
 		dcf_addBit(pulseEnd - pulseStart, newPulseStart - pulseStart);
 		pulseStart = newPulseStart;
-
-		HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 	}
 }
 
@@ -92,8 +92,8 @@ void dcf_handleTelegram(DCF* dcf) {
 		sDate.Year = 10 * dcf->year10 + dcf->year01;
 		sDate.WeekDay = dcf->weekday % 7;
 
-		HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD);
-		HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD);
+		HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+		HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
 	}
 
 	const unsigned short newMinuteStart = htim3.Instance->CNT;
@@ -107,8 +107,43 @@ void dcf_handleTelegram(DCF* dcf) {
 	minuteStart = newMinuteStart;
 }
 
+#define SEG_NONE_MASK 0xf0
+#define SEG_M01_MASK 0x70
+#define SEG_M10_MASK 0xb0
+#define SEG_H01_MASK 0xd0
+#define SEG_H10_MASK 0xe0
+
 void HAL_RTCEx_RTCEventCallback(RTC_HandleTypeDef *hrtc) {
 	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+
+	RTC_TimeTypeDef sTime = { 0 };
+
+	HAL_RTC_GetTime(hrtc, &sTime, RTC_FORMAT_BIN);
+
+	const int h10 = (sTime.Hours / 10) % 10;
+	const int h01 = sTime.Hours % 10;
+	const int m10 = (sTime.Minutes / 10) % 10;
+	const int m01 = sTime.Minutes % 10;
+
+	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK | h10;
+	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_H10_MASK | h10;
+	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK | h10;
+	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK;
+
+	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK | h01;
+	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_H01_MASK | h01;
+	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK | h01;
+	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK;
+
+	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK | m10;
+	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_M10_MASK | m10;
+	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK | m10;
+	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK;
+
+	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK | m01;
+	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_M01_MASK | m01;
+	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK | m01;
+	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK;
 }
 
 void adjustTimer(int error) {
