@@ -60,6 +60,14 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define LED_Pin GPIO_PIN_13
 #define LED_GPIO_Port GPIOC
+#define OSC32_IN_Pin GPIO_PIN_14
+#define OSC32_IN_GPIO_Port GPIOC
+#define OSC32_OUT_Pin GPIO_PIN_15
+#define OSC32_OUT_GPIO_Port GPIOC
+#define OSC_IN_Pin GPIO_PIN_0
+#define OSC_IN_GPIO_Port GPIOD
+#define OSC_OUT_Pin GPIO_PIN_1
+#define OSC_OUT_GPIO_Port GPIOD
 #define BDC_A_Pin GPIO_PIN_0
 #define BDC_A_GPIO_Port GPIOA
 #define BCD_B_Pin GPIO_PIN_1
@@ -80,10 +88,20 @@ void Error_Handler(void);
 #define LIGHT_LEVEL_GPIO_Port GPIOB
 #define DCF_IN_Pin GPIO_PIN_1
 #define DCF_IN_GPIO_Port GPIOB
+#define LAMP_TEST_Pin GPIO_PIN_10
+#define LAMP_TEST_GPIO_Port GPIOB
+#define BLANK_Pin GPIO_PIN_11
+#define BLANK_GPIO_Port GPIOB
 #define TX_Pin GPIO_PIN_9
 #define TX_GPIO_Port GPIOA
 #define RX_Pin GPIO_PIN_10
 #define RX_GPIO_Port GPIOA
+#define SWDIO_Pin GPIO_PIN_13
+#define SWDIO_GPIO_Port GPIOA
+#define SWCLK_Pin GPIO_PIN_14
+#define SWCLK_GPIO_Port GPIOA
+#define SWO_Pin GPIO_PIN_3
+#define SWO_GPIO_Port GPIOB
 #define SCL_Pin GPIO_PIN_6
 #define SCL_GPIO_Port GPIOB
 #define SDA_Pin GPIO_PIN_7
