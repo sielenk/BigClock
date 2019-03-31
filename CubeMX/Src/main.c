@@ -185,12 +185,15 @@ int main(void) {
 	MX_I2C1_Init();
 	MX_USB_PCD_Init();
 	MX_USART1_UART_Init();
+	MX_TIM2_Init();
 	/* USER CODE BEGIN 2 */
+	HAL_GPIO_WritePin(LAMP_TEST_GPIO_Port, LAMP_TEST_Pin, GPIO_PIN_SET);
 	HAL_TIM_IC_Start(&htim3, TIM_CHANNEL_3);
 	HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_4);
+	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
 	HAL_RTCEx_SetSecond_IT(&hrtc);
-	HAL_GPIO_WritePin(BLANK_GPIO_Port, BLANK_Pin, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(LAMP_TEST_GPIO_Port, LAMP_TEST_Pin, GPIO_PIN_SET);
+
+	htim2.Instance->CCR4 = 0x7fff;
 
 	/* USER CODE END 2 */
 
