@@ -82,6 +82,10 @@ void Error_Handler(void);
 #define DCF_IN1_GPIO_Port GPIOB
 #define DCF_IN2_Pin GPIO_PIN_11
 #define DCF_IN2_GPIO_Port GPIOB
+#define TX_Pin GPIO_PIN_9
+#define TX_GPIO_Port GPIOA
+#define RX_Pin GPIO_PIN_10
+#define RX_GPIO_Port GPIOA
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

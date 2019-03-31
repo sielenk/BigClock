@@ -88,8 +88,8 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(DCF_IN2_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PA8 PA9 PA10 PA15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_15;
+  /*Configure GPIO pins : PA8 PA15 */
+  GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_15;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 

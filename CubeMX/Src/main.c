@@ -24,6 +24,7 @@
 #include "i2c.h"
 #include "rtc.h"
 #include "tim.h"
+#include "usart.h"
 #include "usb.h"
 #include "gpio.h"
 
@@ -148,6 +149,7 @@ int main(void) {
 	MX_ADC1_Init();
 	MX_I2C1_Init();
 	MX_USB_PCD_Init();
+	MX_USART1_UART_Init();
 	/* USER CODE BEGIN 2 */
 	HAL_TIM_IC_Start(&htim3, TIM_CHANNEL_3);
 	HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_4);
