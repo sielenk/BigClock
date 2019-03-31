@@ -154,6 +154,9 @@ int main(void) {
 	HAL_TIM_IC_Start(&htim3, TIM_CHANNEL_3);
 	HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_4);
 	HAL_RTCEx_SetSecond_IT(&hrtc);
+	HAL_GPIO_WritePin(BLANK_GPIO_Port, BLANK_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(LAMP_TEST_GPIO_Port, LAMP_TEST_Pin, GPIO_PIN_SET);
+
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
