@@ -203,7 +203,7 @@ int main(void) {
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
-		//const int x = HAL_GPIO_ReadPin(DCF_IN1_GPIO_Port, DCF_IN1_Pin);
+		//const int x = HAL_GPIO_ReadPin(DCF_IN_GPIO_Port, DCF_IN_Pin);
 		//HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, x);
 		//ITM_SendChar('x');
 		//ITM_SendChar('\n');
