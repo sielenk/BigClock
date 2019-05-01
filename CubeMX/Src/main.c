@@ -114,7 +114,7 @@ void dcf_handleTelegram(DCF* dcf) {
 #define SEG_H10_MASK 0xe0
 
 void HAL_RTCEx_RTCEventCallback(RTC_HandleTypeDef *hrtc) {
-	HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+	//HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 
 	RTC_TimeTypeDef sTime = { 0 };
 
