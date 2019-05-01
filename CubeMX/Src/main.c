@@ -114,16 +114,21 @@ void dcf_handleTelegram(DCF* dcf) {
 #define SEG_H10_MASK 0xe0
 
 void HAL_RTCEx_RTCEventCallback(RTC_HandleTypeDef *hrtc) {
+	static int counter = 0;
+	static int test = 0;
+
+	++counter;
+
 	//HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 
 	RTC_TimeTypeDef sTime = { 0 };
 
 	HAL_RTC_GetTime(hrtc, &sTime, RTC_FORMAT_BIN);
 
-	const int h10 = (sTime.Hours / 10) % 10;
-	const int h01 = sTime.Hours % 10;
-	const int m10 = (sTime.Minutes / 10) % 10;
-	const int m01 = sTime.Minutes % 10;
+	const int h10 = (test ? (counter + 0) : (sTime.Hours / 10)) % 10; // (sTime.Hours / 10) % 10;
+	const int h01 = (test ? (counter + 1) : sTime.Hours) % 10; // sTime.Hours % 10;
+	const int m10 = (test ? (counter + 2) : (sTime.Minutes / 10)) % 10; // (sTime.Minutes / 10) % 10;
+	const int m01 = (test ? (counter + 3) : sTime.Minutes) % 10; // sTime.Minutes % 10;
 
 	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK | h10;
 	GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_H10_MASK | h10;
