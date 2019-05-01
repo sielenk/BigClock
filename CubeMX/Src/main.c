@@ -198,7 +198,7 @@ int main(void) {
 	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
 	HAL_RTCEx_SetSecond_IT(&hrtc);
 
-	htim2.Instance->CCR4 = 0x7fff;
+	htim2.Instance->CCR4 = 0xffff;
 
 	/* USER CODE END 2 */
 
