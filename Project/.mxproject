@@ -1,7 +1,7 @@
 [PreviousGenFiles]
-HeaderPath=Inc
+HeaderPath=C:/Users/Marv/Documents/Sandboxes/BigClock/Project/Inc
 HeaderFiles=stm32f1xx_it.h;stm32f1xx_hal_conf.h;main.h;gpio.h;adc.h;i2c.h;rtc.h;tim.h;usart.h;usb.h;
-SourcePath=Src
+SourcePath=C:/Users/Marv/Documents/Sandboxes/BigClock/Project/Src
 SourceFiles=stm32f1xx_it.c;stm32f1xx_hal_msp.c;main.c;gpio.c;adc.c;i2c.c;rtc.c;tim.c;usart.c;usb.c;
 
 [PreviousLibFiles]
