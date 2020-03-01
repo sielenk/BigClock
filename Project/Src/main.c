@@ -85,11 +85,11 @@ void dcf_handleTelegram(DCF *dcf) {
 		RTC_TimeTypeDef sTime = { 0 };
 		RTC_DateTypeDef sDate = { 0 };
 
-		sTime.Hours = 10 * dcf->hour10 + dcf->hour01;
+		sTime.Hours   = 10 * dcf->hour10   + dcf->hour01;
 		sTime.Minutes = 10 * dcf->minute10 + dcf->minute01;
-		sDate.Date = 10 * dcf->day10 + dcf->day01;
-		sDate.Month = 10 * dcf->month10 + dcf->month01;
-		sDate.Year = 10 * dcf->year10 + dcf->year01;
+		sDate.Date    = 10 * dcf->day10    + dcf->day01;
+		sDate.Month   = 10 * dcf->month10  + dcf->month01;
+		sDate.Year    = 10 * dcf->year10   + dcf->year01;
 		sDate.WeekDay = dcf->weekday % 7;
 
 		HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
@@ -132,10 +132,10 @@ void HAL_RTCEx_RTCEventCallback(RTC_HandleTypeDef *hrtc) {
 
 	HAL_RTC_GetTime(hrtc, &sTime, RTC_FORMAT_BIN);
 
-	const int h10 = (test ? (counter + 0) : (sTime.Hours / 10)) % 10; // (sTime.Hours / 10) % 10;
-	const int h01 = (test ? (counter + 1) : sTime.Hours) % 10; // sTime.Hours % 10;
-	const int m10 = (test ? (counter + 2) : (sTime.Minutes / 10)) % 10; // (sTime.Minutes / 10) % 10;
-	const int m01 = (test ? (counter + 3) : sTime.Minutes) % 10; // sTime.Minutes % 10;
+	const int h10 = (test ? (counter + 0) : (sTime.Hours   / 10)) % 10;
+	const int h01 = (test ? (counter + 1) : (sTime.Hours       )) % 10;
+	const int m10 = (test ? (counter + 2) : (sTime.Minutes / 10)) % 10;
+	const int m01 = (test ? (counter + 3) : (sTime.Minutes     )) % 10;
 
 	writeSegment(SEG_H10_MASK, h10);
 	writeSegment(SEG_H01_MASK, h01);
