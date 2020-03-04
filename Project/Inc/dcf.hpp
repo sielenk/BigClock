@@ -1,6 +1,6 @@
 /**
  ******************************************************************************
- * File Name          : dcf.h
+ * File Name          : dcf.hpp
  * Description        : This file provides code for the DCF decoder.
  ******************************************************************************
  * @attention

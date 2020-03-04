@@ -13,7 +13,7 @@
 
 #include "main2.hpp"
 
-#include "dcf.h"
+#include "dcf.hpp"
 
 #include "main.h"
 #include "tim.h"
@@ -74,12 +74,14 @@ dcf_handleTelegram(DCF *dcf) {
 #define SEG_H01_MASK 0xd0
 #define SEG_H10_MASK 0xe0
 
-static void
-writeSegment(uint8_t mask, uint8_t value) {
-  GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK | value;
-  GPIOA->ODR = (GPIOA->ODR & ~0xff) | mask | value;
-  GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK | value;
-  GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK;
+namespace {
+  void
+  writeSegment(uint8_t mask, uint8_t value) {
+    GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK | value;
+    GPIOA->ODR = (GPIOA->ODR & ~0xff) | mask | value;
+    GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK | value;
+    GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK;
+  }
 }
 
 void
