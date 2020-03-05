@@ -47,6 +47,13 @@ HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 
 void
 dcf_handleTelegram(DCF const *dcf) {
+  const unsigned short newMinuteStart = htim3.Instance->CNT - 100;
+  const unsigned short oldMinuteStart = minuteStart;
+  const unsigned short minuteLength = newMinuteStart - oldMinuteStart;
+  const int minuteError = minuteLength - 60000;
+
+  minuteStart = newMinuteStart;
+
   if (dcf) {
     const uint8_t hours = 10 * dcf->hour10 + dcf->hour01;
     const uint8_t minutes = 10 * dcf->minute10 + dcf->minute01;
@@ -63,15 +70,9 @@ dcf_handleTelegram(DCF const *dcf) {
     }
   }
 
-  const unsigned short newMinuteStart = htim3.Instance->CNT - 100;
-  const unsigned short minuteLength = newMinuteStart - minuteStart;
-  const int minuteError = minuteLength - 60000;
-
   if (-600 <= minuteError && minuteError <= 600) {
     adjustTimer(minuteError);
   }
-
-  minuteStart = newMinuteStart;
 }
 
 #define SEG_NONE_MASK 0xf0
