@@ -29,14 +29,19 @@ namespace {
 
 void
 HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
-  if (htim == &htim3 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4) {
-    HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+  if (htim == &htim3) {
+    if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3) {
+      HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+    } else if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4) {
+      const unsigned short oldPulseStart = pulseStart;
+      const unsigned short oldPulseEnd = htim->Instance->CCR3;
+      const unsigned short newPulseStart = htim->Instance->CCR4;
 
-    const unsigned short pulseEnd = htim->Instance->CCR3;
-    const unsigned short newPulseStart = htim->Instance->CCR4;
+      pulseStart = newPulseStart;
+      dcf_addBit(oldPulseEnd - oldPulseStart, newPulseStart - oldPulseStart);
 
-    dcf_addBit(pulseEnd - pulseStart, newPulseStart - pulseStart);
-    pulseStart = newPulseStart;
+      HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+    }
   }
 }
 
@@ -91,7 +96,6 @@ HAL_RTCEx_RTCEventCallback(RTC_HandleTypeDef *hrtc) {
 
   ++counter;
 
-  //HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 
   RTC_TimeTypeDef sTime = { 0 };
 
@@ -118,7 +122,7 @@ namespace {
 void
 main_initialize() {
   HAL_GPIO_WritePin(LAMP_TEST_GPIO_Port, LAMP_TEST_Pin, GPIO_PIN_SET);
-  HAL_TIM_IC_Start(&htim3, TIM_CHANNEL_3);
+  HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_3);
   HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_4);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
   HAL_RTCEx_SetSecond_IT(&hrtc);
