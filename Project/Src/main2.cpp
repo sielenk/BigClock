@@ -54,20 +54,26 @@ dcf_handleTelegram(DCF const *dcf) {
 
   minuteStart = newMinuteStart;
 
+  RTC_TimeTypeDef sTime = { 0 };
+  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+
   if (dcf) {
     const uint8_t hours = 10 * dcf->hour10 + dcf->hour01;
     const uint8_t minutes = 10 * dcf->minute10 + dcf->minute01;
-    RTC_TimeTypeDef sTime = { 0 };
-    HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
 
     if (sTime.Hours != hours || sTime.Minutes != minutes) {
       sTime.Hours = hours;
       sTime.Minutes = minutes;
-
-      HAL_RTCEx_DeactivateSecond(&hrtc);
-      HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-      HAL_RTCEx_SetSecond_IT(&hrtc);
+      sTime.Seconds = 255; // to force an update below
     }
+  }
+
+  if (sTime.Seconds >= 5) {
+    sTime.Seconds = 0;
+
+    HAL_RTCEx_DeactivateSecond(&hrtc);
+    HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+    HAL_RTCEx_SetSecond_IT(&hrtc);
   }
 
   if (-600 <= minuteError && minuteError <= 600) {
