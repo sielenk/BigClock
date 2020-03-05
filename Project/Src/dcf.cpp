@@ -60,16 +60,15 @@ dcf_addBit(unsigned short pulse, unsigned short delta) {
       ++offset;
     } else {
       offset = -1;
+      buffer.bits = 0;
     }
 
     if (isLast) {
-      if (offset == 59 || offset == 60) {
-        if (!buffer.check.zero && buffer.check.one
-            && !parity(buffer.check.minute) && !parity(buffer.check.hour)
-            && !parity(buffer.check.date)) {
-
-          dcf_handleTelegram(&buffer.dcf);
-        }
+      if ((offset == 59 || (buffer.dcf.leapSecComing && offset == 60))
+          && (buffer.check.zero == 0) && (buffer.check.one == 1)
+          && (buffer.check.leapSecZero == 0) && !parity(buffer.check.minute)
+          && !parity(buffer.check.hour) && !parity(buffer.check.date)) {
+        dcf_handleTelegram(&buffer.dcf);
       } else {
         dcf_handleTelegram(nullptr);
       }
@@ -79,5 +78,6 @@ dcf_addBit(unsigned short pulse, unsigned short delta) {
     }
   } else {
     offset = -1;
+    buffer.bits = 0;
   }
 }
