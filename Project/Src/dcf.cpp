@@ -40,8 +40,8 @@ void
 dcf_addBit(unsigned short pulse, unsigned short delta) {
   static union {
     unsigned long long bits;
-    DCFCheck check;
-    DCF dcf;
+    const DCFCheck check;
+    const DCF dcf;
   } buffer = { 0 };
 
   static signed char offset = -1;

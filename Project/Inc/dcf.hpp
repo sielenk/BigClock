@@ -42,7 +42,7 @@ typedef struct {
 	unsigned int year10 :4;
 }__attribute__((packed)) DCF;
 
-void dcf_handleTelegram(DCF* dcf);
+void dcf_handleTelegram(DCF const* dcf);
 
 #ifdef __cplusplus
 }

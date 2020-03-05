@@ -41,7 +41,7 @@ HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 }
 
 void
-dcf_handleTelegram(DCF *dcf) {
+dcf_handleTelegram(DCF const *dcf) {
   if (dcf) {
     RTC_TimeTypeDef sTime = { 0 };
     RTC_DateTypeDef sDate = { 0 };
