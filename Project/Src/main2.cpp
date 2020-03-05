@@ -48,21 +48,22 @@ HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 void
 dcf_handleTelegram(DCF const *dcf) {
   if (dcf) {
+    const uint8_t hours = 10 * dcf->hour10 + dcf->hour01;
+    const uint8_t minutes = 10 * dcf->minute10 + dcf->minute01;
     RTC_TimeTypeDef sTime = { 0 };
-    RTC_DateTypeDef sDate = { 0 };
+    HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
 
-    sTime.Hours = 10 * dcf->hour10 + dcf->hour01;
-    sTime.Minutes = 10 * dcf->minute10 + dcf->minute01;
-    sDate.Date = 10 * dcf->day10 + dcf->day01;
-    sDate.Month = 10 * dcf->month10 + dcf->month01;
-    sDate.Year = 10 * dcf->year10 + dcf->year01;
-    sDate.WeekDay = dcf->weekday % 7;
+    if (sTime.Hours != hours || sTime.Minutes != minutes) {
+      sTime.Hours = hours;
+      sTime.Minutes = minutes;
 
-    HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-    HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+      HAL_RTCEx_DeactivateSecond(&hrtc);
+      HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+      HAL_RTCEx_SetSecond_IT(&hrtc);
+    }
   }
 
-  const unsigned short newMinuteStart = htim3.Instance->CNT;
+  const unsigned short newMinuteStart = htim3.Instance->CNT - 100;
   const unsigned short minuteLength = newMinuteStart - minuteStart;
   const int minuteError = minuteLength - 60000;
 
@@ -91,20 +92,17 @@ namespace {
 
 void
 HAL_RTCEx_RTCEventCallback(RTC_HandleTypeDef *hrtc) {
-  static int counter = 0;
   static int test = 0;
 
-  ++counter;
-
+  const unsigned short milliSecond = htim3.Instance->CNT - minuteStart;
 
   RTC_TimeTypeDef sTime = { 0 };
-
   HAL_RTC_GetTime(hrtc, &sTime, RTC_FORMAT_BIN);
 
-  const int h10 = (test ? (counter + 0) : (sTime.Hours / 10)) % 10;
-  const int h01 = (test ? (counter + 1) : (sTime.Hours)) % 10;
-  const int m10 = (test ? (counter + 2) : (sTime.Minutes / 10)) % 10;
-  const int m01 = (test ? (counter + 3) : (sTime.Minutes)) % 10;
+  const int h10 = (test ? (milliSecond / 1000 % 10) : (sTime.Hours / 10)) % 10;
+  const int h01 = (test ? (milliSecond / 100 % 10) : (sTime.Hours)) % 10;
+  const int m10 = (test ? (milliSecond / 10 % 10) : (sTime.Minutes / 10)) % 10;
+  const int m01 = (test ? (milliSecond / 1 % 10) : (sTime.Minutes)) % 10;
 
   writeSegment(SEG_H10_MASK, h10);
   writeSegment(SEG_H01_MASK, h01);
@@ -130,9 +128,5 @@ main_initialize() {
 
 void
 main_loop() {
-  //const int x = HAL_GPIO_ReadPin(DCF_IN_GPIO_Port, DCF_IN_Pin);
-  //HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, x);
-  //ITM_SendChar('x');
-  //ITM_SendChar('\n');
   __WFE();
 }
