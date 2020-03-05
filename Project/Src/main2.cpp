@@ -122,8 +122,6 @@ main_initialize() {
   HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_4);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
   HAL_RTCEx_SetSecond_IT(&hrtc);
-
-  htim2.Instance->CCR4 = 0xffff;
 }
 
 void
