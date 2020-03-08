@@ -37,7 +37,7 @@ namespace {
 }
 
 void
-dcf_addBit(int secondStart, unsigned short pulse, unsigned short delta) {
+dcf_addBit(unsigned short pulse, unsigned short delta) {
   static union {
     unsigned long long bits;
     const DCFCheck check;
@@ -46,15 +46,15 @@ dcf_addBit(int secondStart, unsigned short pulse, unsigned short delta) {
 
   static signed char offset = -1;
 
-  const bool pulseOk = (500 <= pulse && pulse <= 2500);
-  const bool deltaOk1 = (9500 <= delta && delta <= 10500);
-  const bool deltaOk2 = (19500 <= delta && delta <= 20500);
+  const bool pulseOk = (50 <= pulse && pulse <= 250);
+  const bool deltaOk1 = (950 <= delta && delta <= 1050);
+  const bool deltaOk2 = (1950 <= delta && delta <= 2050);
   const bool deltaOk = deltaOk1 | deltaOk2;
   const bool isLast = deltaOk2;
 
   if (pulseOk && deltaOk) {
     if (0 <= offset && offset <= 60) {
-      if (pulse > 1500) {
+      if (pulse > 150) {
         buffer.bits |= 1ull << offset;
       }
       ++offset;
@@ -68,9 +68,9 @@ dcf_addBit(int secondStart, unsigned short pulse, unsigned short delta) {
           && (buffer.check.zero == 0) && (buffer.check.one == 1)
           && (buffer.check.leapSecZero == 0) && !parity(buffer.check.minute)
           && !parity(buffer.check.hour) && !parity(buffer.check.date)) {
-        dcf_handleTelegram(secondStart, &buffer.dcf);
+        dcf_handleTelegram(&buffer.dcf);
       } else {
-        dcf_handleTelegram(secondStart, nullptr);
+        dcf_handleTelegram(nullptr);
       }
 
       offset = 0;

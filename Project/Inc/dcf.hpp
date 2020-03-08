@@ -18,12 +18,12 @@
 extern "C" {
 #endif
 
-  /* This function is called after a DCF second impulse has been finished (100 or 200ms after the second start).
-   * "pulse" is the length of the received pulse in milliseconds.
+  /* This function is called after a DCF second impulse starts.
+   * "pulse" is the length of the previous pulse in milliseconds.
    * "delta" is the duration from the previous to the current pulse start in milliseconds.
    */
   void
-  dcf_addBit(int secondStart, unsigned short pulse, unsigned short delta);
+  dcf_addBit(unsigned short pulse, unsigned short delta);
 
   typedef struct {
     unsigned int :16;
@@ -51,7 +51,7 @@ extern "C" {
    * The argument is not null if the previous telegram has been successfully decoded.
    */
   void
-  dcf_handleTelegram(int minuteStart, DCF const *dcf);
+  dcf_handleTelegram(DCF const *dcf);
 
 #ifdef __cplusplus
 }

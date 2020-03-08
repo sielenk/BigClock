@@ -21,24 +21,32 @@
 #include <cstdlib>
 
 namespace {
-  const int ticksPerSecond = 10000;
+  const int ticksPerSecond = 1125;
+  const int prescalerBase = 63999;
 
   int secondOfDay = (12 * 60 + 34) * 60 + 56;
 
-  int error;
-  int pulseStart;
-  int pulseEnd;
+  int error = 0;
 
-  int minuteStart;
+  uint32_t
+  filter(int error) {
+    static int Kp = 750;
+    static int Ki = 10;
+
+    static int error_sum = 0;
+
+    error_sum += error;
+
+    const int yp = Kp * error;
+    const int yi = Ki * error_sum;
+    const int y = yp + yi;
+
+    return prescalerBase + y / 1000;
+  }
 }
 
 void
-dcf_handleTelegram(int newMinuteStart, DCF const *dcf) {
-  const auto oldMinuteStart = minuteStart;
-  const auto errorTicks = newMinuteStart - oldMinuteStart - 60 * ticksPerSecond;
-
-  minuteStart = newMinuteStart;
-
+dcf_handleTelegram(DCF const *dcf) {
   if (dcf) {
     const uint8_t hours = 10 * dcf->hour10 + dcf->hour01;
     const uint8_t minutes = 10 * dcf->minute10 + dcf->minute01;
@@ -89,10 +97,16 @@ HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 void
 HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {
   if (htim == &htim3) {
+    auto &instance(*htim->Instance);
+
     switch (htim->Channel) {
       case HAL_TIM_ACTIVE_CHANNEL_1: {
         // This is triggered by the output compare at the 50% point.
         HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+
+        instance.PSC = filter(error);
+        error = 0;
+
         break;
       }
       default:
@@ -103,6 +117,9 @@ HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {
 
 void
 HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
+  static int pulseStart = 0;
+  static int pulseEnd = 0;
+
   if (htim == &htim3) {
     const auto &instance(*htim->Instance);
     const auto offset = secondOfDay * ticksPerSecond;
@@ -118,11 +135,18 @@ HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
         const auto oldPulseStart = pulseStart;
         const auto ccr4 = instance.CCR4;
 
-        error = (ccr4 + ticksPerSecond / 2) % ticksPerSecond;
         pulseStart = ccr4 + offset;
 
-        dcf_addBit(pulseStart, pulseEnd - oldPulseStart,
-                   pulseStart - oldPulseStart);
+        error = ccr4 - (ccr4 > ticksPerSecond / 2) * ticksPerSecond;
+
+        const int pulseLength = (pulseEnd - oldPulseStart) * 1000
+            / ticksPerSecond;
+        int pulseDistance = (pulseStart - oldPulseStart) * 1000
+            / ticksPerSecond;
+
+        if (pulseLength > 10) { // skip glitches
+          dcf_addBit(pulseLength, pulseDistance);
+        }
 
         HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
         break;
