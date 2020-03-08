@@ -66,6 +66,7 @@ namespace {
 void
 HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
   if (htim == &htim3) {
+    // This is triggered by the counter being updated after reaching its maximum value.
     const auto secondOfDay_ = secondOfDay;
 
     secondOfDay = (secondOfDay + 1) % (24 * 60 * 60);
@@ -82,8 +83,21 @@ HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     writeSegment(SEG_H01_MASK, hh.rem);
     writeSegment(SEG_M10_MASK, mm.quot);
     writeSegment(SEG_M01_MASK, mm.rem);
+  }
+}
 
-    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+void
+HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {
+  if (htim == &htim3) {
+    switch (htim->Channel) {
+      case HAL_TIM_ACTIVE_CHANNEL_1: {
+        // This is triggered by the output compare at the 50% point.
+        HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+        break;
+      }
+      default:
+        break;
+    }
   }
 }
 
@@ -122,8 +136,11 @@ HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 void
 main_initialize() {
   HAL_GPIO_WritePin(LAMP_TEST_GPIO_Port, LAMP_TEST_Pin, GPIO_PIN_SET);
+
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+
   HAL_TIM_Base_Start_IT(&htim3);
+  HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_1);
   HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_3);
   HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_4);
 }
