@@ -23,7 +23,7 @@ extern "C" {
    * "delta" is the duration from the previous to the current pulse start in milliseconds.
    */
   void
-  dcf_addBit(unsigned short pulse, unsigned short delta);
+  dcf_addBit(int secondStart, unsigned short pulse, unsigned short delta);
 
   typedef struct {
     unsigned int :16;
@@ -51,7 +51,7 @@ extern "C" {
    * The argument is not null if the previous telegram has been successfully decoded.
    */
   void
-  dcf_handleTelegram(DCF const *dcf);
+  dcf_handleTelegram(int minuteStart, DCF const *dcf);
 
 #ifdef __cplusplus
 }

@@ -17,67 +17,57 @@
 
 #include "main.h"
 #include "tim.h"
-#include "rtc.h"
+
+#include <cstdlib>
 
 namespace {
-  unsigned short pulseStart;
-  unsigned short minuteStart;
+  const int ticksPerSecond = 10000;
 
-  void
-  adjustTimer(int error);
+  int secondOfDay = (12 * 60 + 34) * 60 + 56;
+
+  int error;
+  int pulseStart;
+  int pulseEnd;
+
+  int minuteStart;
 }
 
 void
 HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
   if (htim == &htim3) {
+    const auto offset = secondOfDay * ticksPerSecond;
+
     if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3) {
-      HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+      // This is the end of a 100/200ms time pulse.
+      pulseEnd = htim->Instance->CCR3 + offset;
     } else if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4) {
-      const unsigned short oldPulseStart = pulseStart;
-      const unsigned short oldPulseEnd = htim->Instance->CCR3;
-      const unsigned short newPulseStart = htim->Instance->CCR4;
+      // This is the start of a second as broadcast by the DCF sender.
+      const auto oldPulseStart = pulseStart;
+      const auto ccr4 = htim->Instance->CCR4;
 
-      pulseStart = newPulseStart;
-      dcf_addBit(oldPulseEnd - oldPulseStart, newPulseStart - oldPulseStart);
+      error = (ccr4 + ticksPerSecond / 2) % ticksPerSecond;
+      pulseStart = ccr4 + offset;
 
-      HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+      dcf_addBit(pulseStart, pulseEnd - oldPulseStart,
+                 pulseStart - oldPulseStart);
+
+      HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
     }
   }
 }
 
 void
-dcf_handleTelegram(DCF const *dcf) {
-  const unsigned short newMinuteStart = htim3.Instance->CNT - 100;
-  const unsigned short oldMinuteStart = minuteStart;
-  const unsigned short minuteLength = newMinuteStart - oldMinuteStart;
-  const int minuteError = minuteLength - 60000;
+dcf_handleTelegram(int newMinuteStart, DCF const *dcf) {
+  const auto oldMinuteStart = minuteStart;
+  const auto errorTicks = newMinuteStart - oldMinuteStart - 60 * ticksPerSecond;
 
   minuteStart = newMinuteStart;
-
-  RTC_TimeTypeDef sTime = { 0 };
-  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
 
   if (dcf) {
     const uint8_t hours = 10 * dcf->hour10 + dcf->hour01;
     const uint8_t minutes = 10 * dcf->minute10 + dcf->minute01;
 
-    if (sTime.Hours != hours || sTime.Minutes != minutes) {
-      sTime.Hours = hours;
-      sTime.Minutes = minutes;
-      sTime.Seconds = 255; // to force an update below
-    }
-  }
-
-  if (sTime.Seconds >= 5) {
-    sTime.Seconds = 0;
-
-    HAL_RTCEx_DeactivateSecond(&hrtc);
-    HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-    HAL_RTCEx_SetSecond_IT(&hrtc);
-  }
-
-  if (-600 <= minuteError && minuteError <= 600) {
-    adjustTimer(minuteError);
+    secondOfDay = (60 * hours + minutes) * 60;
   }
 }
 
@@ -98,39 +88,36 @@ namespace {
 }
 
 void
-HAL_RTCEx_RTCEventCallback(RTC_HandleTypeDef *hrtc) {
-  static int test = 0;
+HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+  if (htim == &htim3) {
+    const auto secondOfDay_ = secondOfDay;
 
-  const unsigned short milliSecond = htim3.Instance->CNT - minuteStart;
+    secondOfDay = (secondOfDay + 1) % (24 * 60 * 60);
 
-  RTC_TimeTypeDef sTime = { 0 };
-  HAL_RTC_GetTime(hrtc, &sTime, RTC_FORMAT_BIN);
+    const auto minuteOfDay = secondOfDay_ / 60;
+    const auto hourMinute = div(minuteOfDay, 60);
+    const auto hour = hourMinute.quot;
+    const auto minute = hourMinute.rem;
 
-  const int h10 = (test ? (milliSecond / 1000 % 10) : (sTime.Hours / 10)) % 10;
-  const int h01 = (test ? (milliSecond / 100 % 10) : (sTime.Hours)) % 10;
-  const int m10 = (test ? (milliSecond / 10 % 10) : (sTime.Minutes / 10)) % 10;
-  const int m01 = (test ? (milliSecond / 1 % 10) : (sTime.Minutes)) % 10;
+    const auto hh = div(hour, 10);
+    const auto mm = div(minute, 10);
 
-  writeSegment(SEG_H10_MASK, h10);
-  writeSegment(SEG_H01_MASK, h01);
-  writeSegment(SEG_M10_MASK, m10);
-  writeSegment(SEG_M01_MASK, m01);
-}
+    writeSegment(SEG_H10_MASK, hh.quot);
+    writeSegment(SEG_H01_MASK, hh.rem);
+    writeSegment(SEG_M10_MASK, mm.quot);
+    writeSegment(SEG_M01_MASK, mm.rem);
 
-namespace {
-  void
-  adjustTimer(int error) {
-
+    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
   }
 }
 
 void
 main_initialize() {
   HAL_GPIO_WritePin(LAMP_TEST_GPIO_Port, LAMP_TEST_Pin, GPIO_PIN_SET);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
+  HAL_TIM_Base_Start_IT(&htim3);
   HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_3);
   HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_4);
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
-  HAL_RTCEx_SetSecond_IT(&hrtc);
 }
 
 void
