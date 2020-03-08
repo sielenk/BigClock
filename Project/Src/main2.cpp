@@ -33,30 +33,6 @@ namespace {
 }
 
 void
-HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
-  if (htim == &htim3) {
-    const auto offset = secondOfDay * ticksPerSecond;
-
-    if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_3) {
-      // This is the end of a 100/200ms time pulse.
-      pulseEnd = htim->Instance->CCR3 + offset;
-    } else if (htim->Channel == HAL_TIM_ACTIVE_CHANNEL_4) {
-      // This is the start of a second as broadcast by the DCF sender.
-      const auto oldPulseStart = pulseStart;
-      const auto ccr4 = htim->Instance->CCR4;
-
-      error = (ccr4 + ticksPerSecond / 2) % ticksPerSecond;
-      pulseStart = ccr4 + offset;
-
-      dcf_addBit(pulseStart, pulseEnd - oldPulseStart,
-                 pulseStart - oldPulseStart);
-
-      HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
-    }
-  }
-}
-
-void
 dcf_handleTelegram(int newMinuteStart, DCF const *dcf) {
   const auto oldMinuteStart = minuteStart;
   const auto errorTicks = newMinuteStart - oldMinuteStart - 60 * ticksPerSecond;
@@ -108,6 +84,38 @@ HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     writeSegment(SEG_M01_MASK, mm.rem);
 
     HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+  }
+}
+
+void
+HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
+  if (htim == &htim3) {
+    const auto &instance(*htim->Instance);
+    const auto offset = secondOfDay * ticksPerSecond;
+
+    switch (htim->Channel) {
+      case HAL_TIM_ACTIVE_CHANNEL_3: {
+        // This is the end of a 100/200ms time pulse.
+        pulseEnd = instance.CCR3 + offset;
+        break;
+      }
+      case HAL_TIM_ACTIVE_CHANNEL_4: {
+        // This is the start of a second as broadcast by the DCF sender.
+        const auto oldPulseStart = pulseStart;
+        const auto ccr4 = instance.CCR4;
+
+        error = (ccr4 + ticksPerSecond / 2) % ticksPerSecond;
+        pulseStart = ccr4 + offset;
+
+        dcf_addBit(pulseStart, pulseEnd - oldPulseStart,
+                   pulseStart - oldPulseStart);
+
+        HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+        break;
+      }
+      default:
+        break;
+    }
   }
 }
 
