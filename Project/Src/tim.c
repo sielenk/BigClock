@@ -115,6 +115,11 @@ void MX_TIM3_Init(void)
   {
     Error_Handler();
   }
+  sConfigOC.Pulse = 675;
+  if (HAL_TIM_OC_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
   sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
   sConfigIC.ICSelection = TIM_ICSELECTION_INDIRECTTI;
   sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;

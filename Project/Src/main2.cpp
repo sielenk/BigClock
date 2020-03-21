@@ -97,18 +97,16 @@ HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 void
 HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {
   if (htim == &htim3) {
-    auto &instance(*htim->Instance);
-
     switch (htim->Channel) {
-      case HAL_TIM_ACTIVE_CHANNEL_1: {
+      case HAL_TIM_ACTIVE_CHANNEL_1:
         // This is triggered by the output compare at the 50% point.
         HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
-
-        instance.PSC = filter(error);
-        error = 0;
-
         break;
-      }
+
+      case HAL_TIM_ACTIVE_CHANNEL_2:
+        HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+        break;
+
       default:
         break;
     }
@@ -128,6 +126,7 @@ HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
       case HAL_TIM_ACTIVE_CHANNEL_3: {
         // This is the end of a 100/200ms time pulse.
         pulseEnd = instance.CCR3 + offset;
+        HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
         break;
       }
       case HAL_TIM_ACTIVE_CHANNEL_4: {
@@ -148,7 +147,7 @@ HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
           dcf_addBit(pulseLength, pulseDistance);
         }
 
-        HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
         break;
       }
       default:
@@ -165,6 +164,7 @@ main_initialize() {
 
   HAL_TIM_Base_Start_IT(&htim3);
   HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_1);
+  HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_2);
   HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_3);
   HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_4);
 }
