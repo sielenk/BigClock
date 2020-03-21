@@ -22,27 +22,8 @@
 
 namespace {
   const int ticksPerSecond = 1125;
-  const int prescalerBase = 63999;
 
   int secondOfDay = (12 * 60 + 34) * 60 + 56;
-
-  int error = 0;
-
-  uint32_t
-  filter(int error) {
-    static int Kp = 750;
-    static int Ki = 10;
-
-    static int error_sum = 0;
-
-    error_sum += error;
-
-    const int yp = Kp * error;
-    const int yi = Ki * error_sum;
-    const int y = yp + yi;
-
-    return prescalerBase + y / 1000;
-  }
 }
 
 void
@@ -113,35 +94,68 @@ HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {
   }
 }
 
+const int secondCount = 59;
+
+int errorTicks[secondCount] = { };
+int minuteStart = -1;
+int secondStart = 0;
+int pulseEnd = 0;
+int second = -1;
+
 void
 HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
-  static int pulseStart = 0;
-  static int pulseEnd = 0;
-
   if (htim == &htim3) {
-    const auto &instance(*htim->Instance);
-    const auto offset = secondOfDay * ticksPerSecond;
+    auto &instance(*htim->Instance);
+    const auto ticksOfDay = secondOfDay * ticksPerSecond;
 
     switch (htim->Channel) {
       case HAL_TIM_ACTIVE_CHANNEL_3: {
         // This is the end of a 100/200ms time pulse.
-        pulseEnd = instance.CCR3 + offset;
+        pulseEnd = instance.CCR3 + ticksOfDay;
         HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
         break;
       }
       case HAL_TIM_ACTIVE_CHANNEL_4: {
         // This is the start of a second as broadcast by the DCF sender.
-        const auto oldPulseStart = pulseStart;
         const auto ccr4 = instance.CCR4;
+        const auto oldSecondStart = secondStart;
+        const auto newSecondStart = ccr4 + ticksOfDay;
 
-        pulseStart = ccr4 + offset;
+        secondStart = newSecondStart;
 
-        error = ccr4 - (ccr4 > ticksPerSecond / 2) * ticksPerSecond;
-
-        const int pulseLength = (pulseEnd - oldPulseStart) * 1000
+        const int pulseLength = (pulseEnd - oldSecondStart) * 1000
             / ticksPerSecond;
-        int pulseDistance = (pulseStart - oldPulseStart) * 1000
+        const int pulseDistance = (newSecondStart - oldSecondStart) * 1000
             / ticksPerSecond;
+
+        if (pulseDistance > 1750) {
+          if (second == secondCount) {
+            double beta = 0;
+            {
+              double x = -(secondCount - 1.0) / 2.0;
+              for (auto const y : errorTicks) {
+                beta += x++ * y;
+              }
+            }
+            // error in ticks per second
+            beta /= secondCount * (secondCount * secondCount - 1.0) / 12.0;
+
+            instance.PSC *= (1.0 + beta / ticksPerSecond);
+          }
+
+          minuteStart = secondStart;
+          second = 0;
+        }
+
+        if (0 <= second && second < secondCount) {
+          const int error = secondStart - minuteStart - second * ticksPerSecond;
+          if (std::abs(error) < 200) {
+            errorTicks[second] = error;
+            ++second;
+          } else {
+            second = -1;
+          }
+        }
 
         if (pulseLength > 10) { // skip glitches
           dcf_addBit(pulseLength, pulseDistance);
