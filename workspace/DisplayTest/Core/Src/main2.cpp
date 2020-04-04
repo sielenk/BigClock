@@ -12,73 +12,113 @@
 extern const uint8_t font[8][8];
 
 namespace {
-const uint8_t rowCount = 8;
-const uint8_t chipCount = 4;
-const uint16_t no_decode[] = { 0x0900, 0x0900, 0x0900, 0x0900, };
-const uint16_t normal_op[] = { 0x0c01, 0x0c01, 0x0c01, 0x0c01, };
-const uint16_t test_off[] = { 0x0f00, 0x0f00, 0x0f00, 0x0f00, };
-const uint16_t no_blank[] = { 0x0bff, 0x0bff, 0x0bff, 0x0bff, };
-
 const unsigned char message[] = "    Hallo!  Hurrah, eine Laufschrift...    ";
 
-osThreadId_t threadId = nullptr;
-const uint32_t spiDmaDoneFlag = 1;
-}
+class SpiDmaLock {
+	static const uint32_t spiDmaDoneFlag = 1;
+	static SpiDmaLock *instance;
 
-void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
-	if (hspi == &hspi1) {
-		osThreadFlagsSet(threadId, spiDmaDoneFlag);
-		threadId = nullptr;
-	}
-}
+	SPI_HandleTypeDef &hspi;
+	osThreadId_t threadId;
 
-namespace {
-
-#pragma pack(push,1)
-
-struct Cell {
-	uint8_t data;
-	int:8;
-} framebuffer[rowCount][chipCount];
-
-#pragma pack(pop)
-
-void send(const uint16_t *data, uint8_t count) {
-	HAL_GPIO_WritePin(NCS_GPIO_Port, NCS_Pin, GPIO_PIN_RESET);
-	threadId = osThreadGetId();
-	osThreadFlagsClear(spiDmaDoneFlag);
-	HAL_SPI_Transmit_DMA(&hspi1, (uint8_t*) data, count);
-	osThreadFlagsWait(spiDmaDoneFlag, osFlagsWaitAny, osWaitForever);
-	HAL_GPIO_WritePin(NCS_GPIO_Port, NCS_Pin, GPIO_PIN_SET);
-}
-
-void sendRow(const Cell *rowData, uint8_t rowSize) {
-	send(reinterpret_cast<const uint16_t*>(rowData), rowSize);
-}
-
-void sendRows(const Cell *rowData, int rowCount, int rowSize) {
-	for (int row = 0; row < rowCount; ++row) {
-		sendRow(rowData + row * rowSize, rowSize);
-	}
-}
-
-void sendFrame() {
-	sendRows(framebuffer[0], rowCount, chipCount);
-}
-
-}
-
-extern "C" void mainTaskFunc(void *argument) {
-	for (int i = 0; i < chipCount; ++i) {
-		for (int r = 0; r < rowCount; ++r) {
-			reinterpret_cast<uint16_t&>(framebuffer[r][i]) = (r + 1) << 8;
+public:
+	static void finished(SPI_HandleTypeDef *pspi) {
+		if (instance && pspi == &instance->hspi) {
+			osThreadFlagsSet(instance->threadId, spiDmaDoneFlag);
+			instance = nullptr;
 		}
 	}
 
-	send(test_off, chipCount);
-	send(normal_op, chipCount);
-	send(no_blank, chipCount);
-	send(no_decode, chipCount);
+	SpiDmaLock(SPI_HandleTypeDef &hspi) :
+			hspi(hspi), threadId(osThreadGetId()) {
+		osThreadFlagsClear(spiDmaDoneFlag);
+		instance = this;
+	}
+
+	~SpiDmaLock() {
+		osThreadFlagsWait(spiDmaDoneFlag, osFlagsWaitAny, osWaitForever);
+	}
+};
+
+SpiDmaLock *SpiDmaLock::instance = nullptr;
+
+void spiSend(SPI_HandleTypeDef &hspi, const uint16_t *data, uint8_t count) {
+	HAL_GPIO_WritePin(NCS_GPIO_Port, NCS_Pin, GPIO_PIN_RESET);
+	{
+		SpiDmaLock lock(hspi);
+		HAL_SPI_Transmit_DMA(&hspi, (uint8_t*) data, count);
+	}
+	HAL_GPIO_WritePin(NCS_GPIO_Port, NCS_Pin, GPIO_PIN_SET);
+}
+
+}
+
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
+	SpiDmaLock::finished(hspi);
+}
+
+template<uint8_t rowCount, uint8_t chipCount>
+class Framebuffer {
+	SPI_HandleTypeDef &hspi;
+
+#pragma pack(push,1)
+	struct Cell {
+		uint8_t data;
+		int :8;
+	} buffer[rowCount][chipCount];
+#pragma pack(pop)
+
+	void spiSend(const uint16_t *data) const {
+		::spiSend(hspi, data, chipCount);
+	}
+
+	void spiSend(uint16_t data) const {
+		uint16_t buffer[chipCount];
+
+		for (uint8_t chip = 0; chip < chipCount; ++chip) {
+			buffer[chip] = data;
+		}
+
+		spiSend(buffer);
+	}
+
+public:
+	Framebuffer(SPI_HandleTypeDef &hspi) :
+			hspi(hspi) {
+		for (int i = 0; i < chipCount; ++i) {
+			for (int r = 0; r < rowCount; ++r) {
+				reinterpret_cast<uint16_t&>(buffer[r][i]) = (r + 1) << 8;
+			}
+		}
+
+		spiSend(0xf00); // test: off
+		spiSend(0xc01); // mode: normal
+		spiSend(0xbff); // no blanking
+		spiSend(0x900); // no decode
+
+		send();
+	}
+
+	uint8_t& operator()(uint8_t row, uint8_t chip) {
+		return buffer[row][chip].data;
+	}
+
+	uint8_t operator()(uint8_t row, uint8_t chip) const {
+		return const_cast<Framebuffer*>(this)->operator()(row, chip);
+	}
+
+	void send() const {
+		for (int row = 0; row < rowCount; ++row) {
+			spiSend(reinterpret_cast<const uint16_t*>(buffer[row]));
+		}
+	}
+};
+
+extern "C" void mainTaskFunc(void *argument) {
+	constexpr uint8_t rowCount = 8;
+	constexpr uint8_t chipCount = 4;
+
+	Framebuffer<rowCount, chipCount> fb(hspi1);
 
 	for (;;) {
 		for (unsigned int offset = 0;
@@ -91,12 +131,12 @@ extern "C" void mainTaskFunc(void *argument) {
 				auto const p2 = font[message[offsetChar + i + 1]];
 
 				for (int r = 0; r < rowCount; ++r) {
-					framebuffer[r][i].data = (p2[r] >> (8 - offsetBit))
+					fb(r, i) = (p2[r] >> (8 - offsetBit))
 							| (p1[r] << offsetBit);
 				}
 			}
 
-			sendFrame();
+			fb.send();
 
 			osDelay(50);
 		}
