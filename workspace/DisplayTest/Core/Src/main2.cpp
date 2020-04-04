@@ -34,6 +34,15 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
 
 namespace {
 
+#pragma pack(push,1)
+
+struct Cell {
+	uint8_t data;
+	int:8;
+} framebuffer[rowCount][chipCount];
+
+#pragma pack(pop)
+
 void send(const uint16_t *data, uint8_t count) {
 	HAL_GPIO_WritePin(NCS_GPIO_Port, NCS_Pin, GPIO_PIN_RESET);
 	threadId = osThreadGetId();
@@ -43,25 +52,15 @@ void send(const uint16_t *data, uint8_t count) {
 	HAL_GPIO_WritePin(NCS_GPIO_Port, NCS_Pin, GPIO_PIN_SET);
 }
 
-void sendRow(uint8_t row, const uint8_t *rowData, uint8_t rowSize) {
-	assert_param(row < rowCount);
-
-	uint16_t buffer[rowSize];
-
-	for (int i = 0; i < rowSize; ++i) {
-		buffer[i] = (row + 1) << 8 | rowData[i];
-	}
-
-	send(buffer, rowSize);
+void sendRow(const Cell *rowData, uint8_t rowSize) {
+	send(reinterpret_cast<const uint16_t*>(rowData), rowSize);
 }
 
-void sendRows(const uint8_t *rowData, int rowCount, int rowSize) {
+void sendRows(const Cell *rowData, int rowCount, int rowSize) {
 	for (int row = 0; row < rowCount; ++row) {
-		sendRow(row, rowData + row * rowSize, rowSize);
+		sendRow(rowData + row * rowSize, rowSize);
 	}
 }
-
-uint8_t framebuffer[rowCount][chipCount];
 
 void sendFrame() {
 	sendRows(framebuffer[0], rowCount, chipCount);
@@ -70,6 +69,12 @@ void sendFrame() {
 }
 
 extern "C" void mainTaskFunc(void *argument) {
+	for (int i = 0; i < chipCount; ++i) {
+		for (int r = 0; r < rowCount; ++r) {
+			reinterpret_cast<uint16_t&>(framebuffer[r][i]) = (r + 1) << 8;
+		}
+	}
+
 	send(test_off, chipCount);
 	send(normal_op, chipCount);
 	send(no_blank, chipCount);
@@ -86,7 +91,7 @@ extern "C" void mainTaskFunc(void *argument) {
 				auto const p2 = font[message[offsetChar + i + 1]];
 
 				for (int r = 0; r < rowCount; ++r) {
-					framebuffer[r][i] = (p2[r] >> (8 - offsetBit))
+					framebuffer[r][i].data = (p2[r] >> (8 - offsetBit))
 							| (p1[r] << offsetBit);
 				}
 			}
