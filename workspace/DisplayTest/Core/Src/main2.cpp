@@ -19,7 +19,7 @@ const uint16_t normal_op[] = { 0x0c01, 0x0c01, 0x0c01, 0x0c01, };
 const uint16_t test_off[] = { 0x0f00, 0x0f00, 0x0f00, 0x0f00, };
 const uint16_t no_blank[] = { 0x0bff, 0x0bff, 0x0bff, 0x0bff, };
 
-const unsigned char message[] = "    Hallo!  Hurrah, eine Laufschrift...   ";
+const unsigned char message[] = "    Hallo!  Hurrah, eine Laufschrift...    ";
 
 osThreadId_t threadId = nullptr;
 const uint32_t spiDmaDoneFlag = 1;
