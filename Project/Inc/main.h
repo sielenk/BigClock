@@ -92,6 +92,12 @@ void Error_Handler(void);
 #define LAMP_TEST_GPIO_Port GPIOB
 #define BLANK_Pin GPIO_PIN_11
 #define BLANK_GPIO_Port GPIOB
+#define MATRIX_NCS_Pin GPIO_PIN_12
+#define MATRIX_NCS_GPIO_Port GPIOB
+#define MATRIX_CLK_Pin GPIO_PIN_13
+#define MATRIX_CLK_GPIO_Port GPIOB
+#define MATRIX_DOUT_Pin GPIO_PIN_15
+#define MATRIX_DOUT_GPIO_Port GPIOB
 #define TX_Pin GPIO_PIN_9
 #define TX_GPIO_Port GPIOA
 #define RX_Pin GPIO_PIN_10
