@@ -17,6 +17,7 @@
 
 #include "main.h"
 #include "tim.h"
+#include "cmsis_os2.h"
 
 #include <cstdlib>
 
@@ -183,5 +184,5 @@ main_initialize() {
 
 void
 main_loop() {
-  __WFE();
+  osThreadSuspend(osThreadGetId());
 }

@@ -120,9 +120,13 @@ __weak void mainTaskFunc(void *argument)
   /* init code for USB_DEVICE */
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN mainTaskFunc */
+
+  main_initialize();
+
   /* Infinite loop */
   for(;;)
   {
+    main_loop();
     osDelay(1);
   }
   /* USER CODE END mainTaskFunc */

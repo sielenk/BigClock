@@ -103,8 +103,6 @@ int main(void)
   MX_TIM2_Init();
   MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
-  main_initialize();
-
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -121,7 +119,6 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    main_loop();
   }
   /* USER CODE END 3 */
 }
