@@ -54,6 +54,7 @@ extern "C" {
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
+void HAL_TIM3_PeriodElapsedCallback(void);
 
 /* USER CODE END EFP */
 

@@ -53,26 +53,24 @@ namespace {
 }
 
 void
-HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-  if (htim == &htim3) {
-    // This is triggered by the counter being updated after reaching its maximum value.
-    const auto secondOfDay_ = secondOfDay;
+HAL_TIM3_PeriodElapsedCallback() {
+  // This is triggered by the counter being updated after reaching its maximum value.
+  const auto secondOfDay_ = secondOfDay;
 
-    secondOfDay = (secondOfDay + 1) % (24 * 60 * 60);
+  secondOfDay = (secondOfDay + 1) % (24 * 60 * 60);
 
-    const auto minuteOfDay = secondOfDay_ / 60;
-    const auto hourMinute = div(minuteOfDay, 60);
-    const auto hour = hourMinute.quot;
-    const auto minute = hourMinute.rem;
+  const auto minuteOfDay = secondOfDay_ / 60;
+  const auto hourMinute = div(minuteOfDay, 60);
+  const auto hour = hourMinute.quot;
+  const auto minute = hourMinute.rem;
 
-    const auto hh = div(hour, 10);
-    const auto mm = div(minute, 10);
+  const auto hh = div(hour, 10);
+  const auto mm = div(minute, 10);
 
-    writeSegment(SEG_H10_MASK, hh.quot);
-    writeSegment(SEG_H01_MASK, hh.rem);
-    writeSegment(SEG_M10_MASK, mm.quot);
-    writeSegment(SEG_M01_MASK, mm.rem);
-  }
+  writeSegment(SEG_H10_MASK, hh.quot);
+  writeSegment(SEG_H01_MASK, hh.rem);
+  writeSegment(SEG_M10_MASK, mm.quot);
+  writeSegment(SEG_M01_MASK, mm.rem);
 }
 
 void
