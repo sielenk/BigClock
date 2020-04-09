@@ -19,6 +19,7 @@
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
+#include <matrix.hpp>
 #include "FreeRTOS.h"
 #include "task.h"
 #include "main.h"
@@ -26,7 +27,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */     
-
+#include "main2.hpp"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -61,6 +62,18 @@ const osThreadAttr_t mainTask_attributes = {
   .cb_size = sizeof(mainTaskControlBlock),
   .priority = (osPriority_t) osPriorityNormal,
 };
+/* Definitions for matrixTask */
+osThreadId_t matrixTaskHandle;
+uint32_t matrixTaskBuffer[ 128 ];
+osStaticThreadDef_t matrixTaskControlBlock;
+const osThreadAttr_t matrixTask_attributes = {
+  .name = "matrixTask",
+  .stack_mem = &matrixTaskBuffer[0],
+  .stack_size = sizeof(matrixTaskBuffer),
+  .cb_mem = &matrixTaskControlBlock,
+  .cb_size = sizeof(matrixTaskControlBlock),
+  .priority = (osPriority_t) osPriorityNormal,
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -68,6 +81,7 @@ const osThreadAttr_t mainTask_attributes = {
 /* USER CODE END FunctionPrototypes */
 
 void mainTaskFunc(void *argument);
+extern void matrixTaskFun(void *argument);
 
 extern void MX_USB_DEVICE_Init(void);
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
@@ -102,6 +116,9 @@ void MX_FREERTOS_Init(void) {
   /* creation of mainTask */
   mainTaskHandle = osThreadNew(mainTaskFunc, NULL, &mainTask_attributes);
 
+  /* creation of matrixTask */
+  matrixTaskHandle = osThreadNew(matrixTaskFun, NULL, &matrixTask_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -115,7 +132,7 @@ void MX_FREERTOS_Init(void) {
   * @retval None
   */
 /* USER CODE END Header_mainTaskFunc */
-__weak void mainTaskFunc(void *argument)
+void mainTaskFunc(void *argument)
 {
   /* init code for USB_DEVICE */
   MX_USB_DEVICE_Init();

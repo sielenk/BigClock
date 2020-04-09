@@ -43,7 +43,7 @@ void MX_TIM3_Init(void);
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
                     
 /* USER CODE BEGIN Prototypes */
-
+void HAL_TIM3_PeriodElapsedCallback(void);
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus
