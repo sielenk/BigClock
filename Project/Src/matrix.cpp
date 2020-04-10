@@ -95,9 +95,10 @@ template<uint8_t rowCount, uint8_t chipCount>
       spiSend(0xf00); // test: off
       spiSend(0xc01); // mode: normal
       spiSend(0xbff); // no blanking
+      spiSend(0xa03); // Intensity 7/32
       spiSend(0x900); // no decode
 
-      send();
+      send(); // sync the fb memory to the matrix
     }
 
     uint8_t&
