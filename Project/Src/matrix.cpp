@@ -8,34 +8,39 @@
 #include "matrix.hpp"
 
 #include "font.h"
-#include "cmsis_os2.h"
 #include "spi.h"
 #include "main.h"
+
+#include "FreeRTOS.h"
+#include "task.h"
 
 class SpiDmaLock {
   static const uint32_t spiDmaDoneFlag = 1;
   static SpiDmaLock *instance;
 
   SPI_HandleTypeDef &hspi;
-  osThreadId_t threadId;
+  TaskHandle_t taskHandle;
 
 public:
   static void
   finished(SPI_HandleTypeDef *pspi) {
     if (instance && pspi == &instance->hspi) {
-      osThreadFlagsSet(instance->threadId, spiDmaDoneFlag);
+      BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+      xTaskNotifyFromISR(instance->taskHandle, spiDmaDoneFlag, eSetBits,
+                         &xHigherPriorityTaskWoken);
       instance = nullptr;
+      portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
   }
 
   SpiDmaLock(SPI_HandleTypeDef &hspi) :
-      hspi(hspi), threadId(osThreadGetId()) {
-    osThreadFlagsClear(spiDmaDoneFlag);
+      hspi(hspi), taskHandle(xTaskGetCurrentTaskHandle()) {
+    xTaskNotifyWait(0, spiDmaDoneFlag, nullptr, 0);
     instance = this;
   }
 
   ~SpiDmaLock() {
-    osThreadFlagsWait(spiDmaDoneFlag, osFlagsWaitAny, osWaitForever);
+    xTaskNotifyWait(0, spiDmaDoneFlag, nullptr, portMAX_DELAY);
   }
 };
 
@@ -129,7 +134,7 @@ matrixTaskFun(void*) {
 
   Framebuffer<rowCount, chipCount> fb(hspi2);
 
-  auto tick = osKernelGetTickCount();
+  auto lastWakeTime = xTaskGetTickCount();
   for (;;) {
     for (unsigned int offset = 0; offset < messageLength * 8; ++offset) {
       const auto offsetBit = offset & 7;
@@ -146,7 +151,7 @@ matrixTaskFun(void*) {
 
       fb.send();
 
-      osDelayUntil(tick += 20);
+      vTaskDelayUntil(&lastWakeTime, 20);
     }
   }
 }

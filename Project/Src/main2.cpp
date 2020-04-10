@@ -17,7 +17,9 @@
 
 #include "main.h"
 #include "tim.h"
-#include "cmsis_os2.h"
+
+#include "FreeRTOS.h"
+#include "task.h"
 
 #include <cstdlib>
 
@@ -184,5 +186,5 @@ main_initialize() {
 
 void
 main_loop() {
-  osThreadSuspend(osThreadGetId());
+  vTaskSuspend(nullptr);
 }

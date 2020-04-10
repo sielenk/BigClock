@@ -19,7 +19,6 @@
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
-#include <matrix.hpp>
 #include "FreeRTOS.h"
 #include "task.h"
 #include "main.h"
@@ -27,6 +26,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */     
+#include "matrix.hpp"
 #include "main2.hpp"
 /* USER CODE END Includes */
 
@@ -64,7 +64,7 @@ const osThreadAttr_t mainTask_attributes = {
 };
 /* Definitions for matrixTask */
 osThreadId_t matrixTaskHandle;
-uint32_t matrixTaskBuffer[ 128 ];
+uint32_t matrixTaskBuffer[ 256 ];
 osStaticThreadDef_t matrixTaskControlBlock;
 const osThreadAttr_t matrixTask_attributes = {
   .name = "matrixTask",
@@ -144,7 +144,6 @@ void mainTaskFunc(void *argument)
   for(;;)
   {
     main_loop();
-    osDelay(1);
   }
   /* USER CODE END mainTaskFunc */
 }
