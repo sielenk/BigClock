@@ -25,21 +25,28 @@
 #include <cstdlib>
 #include <ctime>
 
-namespace {
-  const int ticksPerSecond = 1125;
+constexpr int ticksPerSecond { 1125 };
 
-  int secondOfDay = (12 * 60 + 34) * 60 + 56;
+namespace {
+  int secondOfDay { (12 * 60 + 34) * 60 + 56 };
 }
 
-std::tm current_time = { .tm_sec = -1, .tm_min = -1, .tm_hour = -1, .tm_mday =
-    -1, .tm_mon = -1, .tm_year = -1, .tm_wday = -1, .tm_yday = -1, .tm_isdst =
-    -1 };
+std::tm current_time {
+  .tm_sec = -1,
+  .tm_min = -1,
+  .tm_hour = -1,
+  .tm_mday = -1,
+  .tm_mon = -1,
+  .tm_year = -1,
+  .tm_wday = -1,
+  .tm_yday = -1,
+  .tm_isdst = -1};
 
 void
 dcf_handleTelegram(DCF const *dcf) {
   if (dcf) {
-    const uint8_t hours = 10 * dcf->hour10 + dcf->hour01;
-    const uint8_t minutes = 10 * dcf->minute10 + dcf->minute01;
+    const auto hours { 10 * dcf->hour10 + dcf->hour01 };
+    const auto minutes { 10 * dcf->minute10 + dcf->minute01 };
 
     current_time.tm_mday = 10 * dcf->day10 + dcf->day01;
     current_time.tm_mon = 10 * dcf->month10 + dcf->month01 - 1;
@@ -70,18 +77,18 @@ namespace {
 void
 HAL_TIM3_PeriodElapsedCallback() {
   // This is triggered by the counter being updated after reaching its maximum value.
-  const auto secondOfDay_ = secondOfDay;
+  const auto secondOfDay_ { secondOfDay };
 
   secondOfDay = (secondOfDay + 1) % (24 * 60 * 60);
 
-  const auto minuteSecond = div(secondOfDay_, 60);
-  const auto minuteOfDay = minuteSecond.quot;
-  const auto hourMinute = div(minuteOfDay, 60);
-  const auto hour = hourMinute.quot;
-  const auto minute = hourMinute.rem;
+  const auto minuteSecond { div(secondOfDay_, 60) };
+  const auto minuteOfDay { minuteSecond.quot };
+  const auto hourMinute { div(minuteOfDay, 60) };
+  const auto hour { hourMinute.quot };
+  const auto minute { hourMinute.rem };
 
-  const auto hh = div(hour, 10);
-  const auto mm = div(minute, 10);
+  const auto hh { div(hour, 10) };
+  const auto mm { div(minute, 10) };
 
   current_time.tm_sec = minuteSecond.rem;
   current_time.tm_min = minute;
@@ -129,17 +136,17 @@ static_assert(
     static_cast<double>(secondCount * (secondCount * secondCount - 1) / 12) ==
     secondCount * (secondCount * secondCount - 1.0) / 12.0);
 
-int errorTicks[secondCount] = { };
-int minuteStart = -1;
-int secondStart = 0;
-int pulseEnd = 0;
-int pulseIndex = -1;
+int errorTicks[secondCount] { };
+int minuteStart { -1 };
+int secondStart { 0 };
+int pulseEnd { 0 };
+int pulseIndex { -1 };
 
 void
 HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
   if (htim == &htim3) {
-    auto &instance(*htim->Instance);
-    const auto ticksOfDay = secondOfDay * ticksPerSecond;
+    auto &instance { *htim->Instance };
+    const auto ticksOfDay { secondOfDay * ticksPerSecond };
 
     switch (htim->Channel) {
       case HAL_TIM_ACTIVE_CHANNEL_3: {
@@ -150,22 +157,22 @@ HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
       }
       case HAL_TIM_ACTIVE_CHANNEL_4: {
         // This is the start of a second as broadcast by the DCF sender.
-        const auto ccr4 = instance.CCR4;
-        const auto oldSecondStart = secondStart;
-        const auto newSecondStart = ccr4 + ticksOfDay;
+        const auto ccr4 { static_cast<int>(instance.CCR4) };
+        const auto oldSecondStart { secondStart };
+        const auto newSecondStart { ccr4 + ticksOfDay };
 
         secondStart = newSecondStart;
 
-        const int pulseLength = (pulseEnd - oldSecondStart) * 1000
-            / ticksPerSecond;
-        const int pulseDistance = (newSecondStart - oldSecondStart) * 1000
-            / ticksPerSecond;
+        const int pulseLength { (pulseEnd - oldSecondStart) * 1000
+            / ticksPerSecond };
+        const int pulseDistance { (newSecondStart - oldSecondStart) * 1000
+            / ticksPerSecond };
 
         if (pulseDistance > 1750) {
           if (pulseIndex == secondCount) {
-            int beta = 0;
+            int beta { 0 };
             {
-              int x = -(secondCount - 1) / 2;
+              int x { -(secondCount - 1) / 2 };
               for (auto const y : errorTicks) {
                 beta += x++ * y;
               }
@@ -182,7 +189,9 @@ HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
         }
 
         if (0 <= pulseIndex && pulseIndex < secondCount) {
-          const int error = secondStart - minuteStart - pulseIndex * ticksPerSecond;
+          const int error { secondStart - minuteStart
+              - pulseIndex * ticksPerSecond };
+
           if (std::abs(error) < 200) {
             errorTicks[pulseIndex] = error;
             ++pulseIndex;
