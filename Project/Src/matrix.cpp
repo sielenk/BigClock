@@ -2,7 +2,7 @@
  * matrix.cpp
  *
  *  Created on: Apr 5, 2020
- *      Author: Marv
+ *      Author: Marvin H. Sielenkemper
  */
 
 #include "matrix.hpp"
@@ -14,8 +14,9 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+constexpr uint32_t spiDmaDoneFlag { 1 };
+
 class SpiDmaLock {
-  static const uint32_t spiDmaDoneFlag = 1;
   static SpiDmaLock *instance;
 
   SPI_HandleTypeDef &hspi;
@@ -50,7 +51,7 @@ void
 spiSend(SPI_HandleTypeDef &hspi, const uint16_t *data, uint8_t count) {
   HAL_GPIO_WritePin(MATRIX_NCS_GPIO_Port, MATRIX_NCS_Pin, GPIO_PIN_RESET);
   {
-    SpiDmaLock lock(hspi);
+    SpiDmaLock lock { hspi };
     HAL_SPI_Transmit_DMA(&hspi, (uint8_t*)data, count);
   }
   HAL_GPIO_WritePin(MATRIX_NCS_GPIO_Port, MATRIX_NCS_Pin, GPIO_PIN_SET);
@@ -81,7 +82,7 @@ template<uint8_t rowCount, uint8_t chipCount>
     spiSend(uint16_t data) const {
       uint16_t buffer[chipCount];
 
-      for (uint8_t chip = 0; chip < chipCount; ++chip) {
+      for (uint8_t chip { 0 }; chip < chipCount; ++chip) {
         buffer[chip] = data;
       }
 
@@ -91,8 +92,8 @@ template<uint8_t rowCount, uint8_t chipCount>
   public:
     Framebuffer(SPI_HandleTypeDef &hspi) :
         hspi(hspi) {
-      for (int i = 0; i < chipCount; ++i) {
-        for (int r = 0; r < rowCount; ++r) {
+      for (int i { 0 }; i < chipCount; ++i) {
+        for (int r { 0 }; r < rowCount; ++r) {
           reinterpret_cast<uint16_t&>(buffer[r][i]) = (r + 1) << 8;
         }
       }
@@ -118,33 +119,41 @@ template<uint8_t rowCount, uint8_t chipCount>
 
     void
     send() const {
-      for (int row = 0; row < rowCount; ++row) {
+      for (int row { 0 }; row < rowCount; ++row) {
         spiSend(reinterpret_cast<const uint16_t*>(buffer[row]));
       }
     }
   };
 
+constexpr uint8_t rowCount { 8 };
+constexpr uint8_t chipCount { 11 };
+
+typedef Framebuffer<rowCount, chipCount> Fb;
+
+namespace {
+  Fb *fbRef { nullptr };
+
+  constexpr size_t messageLength = 10;
+  char message[messageLength + 1] { "?? ??. ???" };
+}
+
 void
 matrixTaskFun(void*) {
-  constexpr uint8_t rowCount = 8;
-  constexpr uint8_t chipCount = 11;
-  constexpr char message[] = "the quick brown fox jumps over the lazy dog. "
-      "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG. ";
-  constexpr size_t messageLength = sizeof(message) - 1;
+  Fb fb(hspi2);
+  fbRef = &fb;
 
-  Framebuffer<rowCount, chipCount> fb(hspi2);
-
-  auto lastWakeTime = xTaskGetTickCount();
+  auto lastWakeTime { xTaskGetTickCount() };
   for (;;) {
-    for (unsigned int offset = 0; offset < messageLength * 8; ++offset) {
-      const auto offsetBit = offset & 7;
-      const auto offsetChar = offset / 8;
+    for (unsigned int offset { 0 }; offset < 1 /* messageLength * 8 */;
+        ++offset) {
+      const auto offsetBit { offset & 7 };
+      const auto offsetChar { offset / 8 };
 
-      for (int i = 0; i < chipCount; ++i) {
-        auto const p1 = font[message[(offsetChar + i) % messageLength]];
-        auto const p2 = font[message[(offsetChar + i + 1) % messageLength]];
+      for (int i { 0 }; i < chipCount - 1; ++i) {
+        auto const p1 { font[message[(offsetChar + i) % messageLength]] };
+        auto const p2 { font[message[(offsetChar + i + 1) % messageLength]] };
 
-        for (int r = 0; r < rowCount; ++r) {
+        for (int r { 0 }; r < rowCount; ++r) {
           fb(r, i) = (p2[r] >> (8 - offsetBit)) | (p1[r] << offsetBit);
         }
       }
@@ -152,6 +161,31 @@ matrixTaskFun(void*) {
       fb.send();
 
       vTaskDelayUntil(&lastWakeTime, 20);
+    }
+  }
+}
+
+const char *weekday[7] { "So", "Mo", "Di", "Mi", "Do", "Fr", "Sa" };
+const char *month[12] { "Jan", "Feb", "Mar", "Apr", "Mai", "Jun", "Jul", "Aug",
+    "Sep", "Okt", "Nov", "Dez" };
+
+void
+matrixSetTime(std::tm const &current_time) {
+  if (fbRef) {
+    Fb &fb { *fbRef };
+    const uint64_t seconds { (1ULL << current_time.tm_sec) - 1 };
+
+    for (int r { 0 }; r < 8; ++r) {
+      fb(7 - r, chipCount - 1) = (seconds >> (8 * r)) & 0xff;
+    }
+
+    if (current_time.tm_year >= 0) {
+      reinterpret_cast<uint16_t&>(message[0]) =
+          *reinterpret_cast<const uint16_t*>(weekday[current_time.tm_wday]);
+      message[3] = '0' + current_time.tm_mday / 10;
+      message[4] = '0' + current_time.tm_mday % 10;
+      reinterpret_cast<uint32_t&>(message[7]) =
+          *reinterpret_cast<const uint32_t*>(month[current_time.tm_mon]);
     }
   }
 }

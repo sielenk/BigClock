@@ -8,6 +8,12 @@
 #ifndef MATRIX_HPP_
 #define MATRIX_HPP_
 #ifdef __cplusplus
+
+#include <ctime>
+
+void
+matrixSetTime(std::tm const& current_time);
+
 extern "C" {
 #endif
 

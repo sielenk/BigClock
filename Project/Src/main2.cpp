@@ -12,6 +12,7 @@
  */
 
 #include "main2.hpp"
+#include "matrix.hpp"
 
 #include "dcf.hpp"
 
@@ -22,6 +23,7 @@
 #include "task.h"
 
 #include <cstdlib>
+#include <ctime>
 
 namespace {
   const int ticksPerSecond = 1125;
@@ -29,11 +31,21 @@ namespace {
   int secondOfDay = (12 * 60 + 34) * 60 + 56;
 }
 
+std::tm current_time = { .tm_sec = -1, .tm_min = -1, .tm_hour = -1, .tm_mday =
+    -1, .tm_mon = -1, .tm_year = -1, .tm_wday = -1, .tm_yday = -1, .tm_isdst =
+    -1 };
+
 void
 dcf_handleTelegram(DCF const *dcf) {
   if (dcf) {
     const uint8_t hours = 10 * dcf->hour10 + dcf->hour01;
     const uint8_t minutes = 10 * dcf->minute10 + dcf->minute01;
+
+    current_time.tm_mday = 10 * dcf->day10 + dcf->day01;
+    current_time.tm_mon = 10 * dcf->month10 + dcf->month01 - 1;
+    current_time.tm_year = 10 * dcf->year10 + dcf->year01 + 100;
+    current_time.tm_wday = dcf->weekday % 7;
+    current_time.tm_isdst = dcf->isMesz;
 
     secondOfDay = (60 * hours + minutes) * 60;
   }
@@ -62,7 +74,8 @@ HAL_TIM3_PeriodElapsedCallback() {
 
   secondOfDay = (secondOfDay + 1) % (24 * 60 * 60);
 
-  const auto minuteOfDay = secondOfDay_ / 60;
+  const auto minuteSecond = div(secondOfDay_, 60);
+  const auto minuteOfDay = minuteSecond.quot;
   const auto hourMinute = div(minuteOfDay, 60);
   const auto hour = hourMinute.quot;
   const auto minute = hourMinute.rem;
@@ -70,10 +83,25 @@ HAL_TIM3_PeriodElapsedCallback() {
   const auto hh = div(hour, 10);
   const auto mm = div(minute, 10);
 
+  current_time.tm_sec = minuteSecond.rem;
+  current_time.tm_min = minute;
+  current_time.tm_hour = hour;
+
+  if (secondOfDay_ == 0) {
+    current_time.tm_mday = -1;
+    current_time.tm_mon = -1;
+    current_time.tm_year = -1;
+    current_time.tm_wday = -1;
+    current_time.tm_yday = -1;
+    current_time.tm_isdst = -1;
+  }
+
   writeSegment(SEG_H10_MASK, hh.quot);
   writeSegment(SEG_H01_MASK, hh.rem);
   writeSegment(SEG_M10_MASK, mm.quot);
   writeSegment(SEG_M01_MASK, mm.rem);
+
+  matrixSetTime(current_time);
 }
 
 void
