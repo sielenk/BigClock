@@ -95,13 +95,17 @@ HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {
   }
 }
 
-const int secondCount = 59;
+constexpr int secondCount = 59;
+
+static_assert(
+    static_cast<double>(secondCount * (secondCount * secondCount - 1) / 12) ==
+    secondCount * (secondCount * secondCount - 1.0) / 12.0);
 
 int errorTicks[secondCount] = { };
 int minuteStart = -1;
 int secondStart = 0;
 int pulseEnd = 0;
-int second = -1;
+int pulseIndex = -1;
 
 void
 HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
@@ -130,31 +134,32 @@ HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
             / ticksPerSecond;
 
         if (pulseDistance > 1750) {
-          if (second == secondCount) {
-            double beta = 0;
+          if (pulseIndex == secondCount) {
+            int beta = 0;
             {
-              double x = -(secondCount - 1.0) / 2.0;
+              int x = -(secondCount - 1) / 2;
               for (auto const y : errorTicks) {
                 beta += x++ * y;
               }
             }
             // error in ticks per second
-            beta /= secondCount * (secondCount * secondCount - 1.0) / 12.0;
+            beta /= secondCount * (secondCount * secondCount - 1) / 12;
 
-            instance.PSC *= (1.0 + beta / ticksPerSecond);
+            instance.PSC = (instance.PSC * (ticksPerSecond + beta))
+                / ticksPerSecond;
           }
 
           minuteStart = secondStart;
-          second = 0;
+          pulseIndex = 0;
         }
 
-        if (0 <= second && second < secondCount) {
-          const int error = secondStart - minuteStart - second * ticksPerSecond;
+        if (0 <= pulseIndex && pulseIndex < secondCount) {
+          const int error = secondStart - minuteStart - pulseIndex * ticksPerSecond;
           if (std::abs(error) < 200) {
-            errorTicks[second] = error;
-            ++second;
+            errorTicks[pulseIndex] = error;
+            ++pulseIndex;
           } else {
-            second = -1;
+            pulseIndex = -1;
           }
         }
 
