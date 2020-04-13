@@ -26,6 +26,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */     
+#include "dcf_timer.hpp"
 #include "matrix.hpp"
 #include "main2.hpp"
 /* USER CODE END Includes */
@@ -50,17 +51,17 @@ typedef StaticTask_t osStaticThreadDef_t;
 /* USER CODE BEGIN Variables */
 
 /* USER CODE END Variables */
-/* Definitions for mainTask */
-osThreadId_t mainTaskHandle;
-uint32_t mainTaskBuffer[ 128 ];
-osStaticThreadDef_t mainTaskControlBlock;
-const osThreadAttr_t mainTask_attributes = {
-  .name = "mainTask",
-  .stack_mem = &mainTaskBuffer[0],
-  .stack_size = sizeof(mainTaskBuffer),
-  .cb_mem = &mainTaskControlBlock,
-  .cb_size = sizeof(mainTaskControlBlock),
-  .priority = (osPriority_t) osPriorityNormal,
+/* Definitions for dcfTimerTask */
+osThreadId_t dcfTimerTaskHandle;
+uint32_t dcfTimerTaskBuffer[ 128 ];
+osStaticThreadDef_t dcfTimerTaskControlBlock;
+const osThreadAttr_t dcfTimerTask_attributes = {
+  .name = "dcfTimerTask",
+  .stack_mem = &dcfTimerTaskBuffer[0],
+  .stack_size = sizeof(dcfTimerTaskBuffer),
+  .cb_mem = &dcfTimerTaskControlBlock,
+  .cb_size = sizeof(dcfTimerTaskControlBlock),
+  .priority = (osPriority_t) osPriorityRealtime,
 };
 /* Definitions for matrixTask */
 osThreadId_t matrixTaskHandle;
@@ -80,7 +81,7 @@ const osThreadAttr_t matrixTask_attributes = {
    
 /* USER CODE END FunctionPrototypes */
 
-void mainTaskFunc(void *argument);
+void dcfTimerFunc(void *argument);
 extern void matrixTaskFun(void *argument);
 
 extern void MX_USB_DEVICE_Init(void);
@@ -113,8 +114,8 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of mainTask */
-  mainTaskHandle = osThreadNew(mainTaskFunc, NULL, &mainTask_attributes);
+  /* creation of dcfTimerTask */
+  dcfTimerTaskHandle = osThreadNew(dcfTimerFunc, NULL, &dcfTimerTask_attributes);
 
   /* creation of matrixTask */
   matrixTaskHandle = osThreadNew(matrixTaskFun, NULL, &matrixTask_attributes);
@@ -125,27 +126,24 @@ void MX_FREERTOS_Init(void) {
 
 }
 
-/* USER CODE BEGIN Header_mainTaskFunc */
+/* USER CODE BEGIN Header_dcfTimerFunc */
 /**
-  * @brief  Function implementing the mainTask thread.
+  * @brief  Function implementing the dcfTimerTask thread.
   * @param  argument: Not used 
   * @retval None
   */
-/* USER CODE END Header_mainTaskFunc */
-void mainTaskFunc(void *argument)
+/* USER CODE END Header_dcfTimerFunc */
+__weak void dcfTimerFunc(void *argument)
 {
   /* init code for USB_DEVICE */
   MX_USB_DEVICE_Init();
-  /* USER CODE BEGIN mainTaskFunc */
-
-  main_initialize();
-
+  /* USER CODE BEGIN dcfTimerFunc */
   /* Infinite loop */
   for(;;)
   {
-    main_loop();
+    osDelay(1);
   }
-  /* USER CODE END mainTaskFunc */
+  /* USER CODE END dcfTimerFunc */
 }
 
 /* Private application code --------------------------------------------------*/

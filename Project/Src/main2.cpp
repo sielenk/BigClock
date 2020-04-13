@@ -15,9 +15,8 @@
 #include "matrix.hpp"
 
 #include "dcf.hpp"
-
-#include "main.h"
-#include "tim.h"
+#include "dcf_timer.hpp"
+#include "7segment.hpp"
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -28,8 +27,29 @@
 constexpr int ticksPerSecond { 1125 };
 
 namespace {
-  int secondOfDay { (12 * 60 + 34) * 60 + 56 };
+  class DcfTimer: public IDcfTimer {
+    static DcfTimer instance;
+
+    DcfTimer() {
+      instancePtr = this;
+    }
+
+    ~DcfTimer() {
+      instancePtr = nullptr;
+    }
+
+  public:
+    virtual void
+    onSecondStart();
+
+    virtual void
+    onPulse(bool start, uint32_t sampledValue);
+  };
+
+  uint32_t secondOfDay { (12 * 60 + 34) * 60 + 56 };
 }
+
+DcfTimer DcfTimer::instance;
 
 std::tm current_time {
   .tm_sec = -1,
@@ -58,24 +78,9 @@ dcf_handleTelegram(DCF const *dcf) {
   }
 }
 
-#define SEG_NONE_MASK 0xf0
-#define SEG_M01_MASK 0x70
-#define SEG_M10_MASK 0xb0
-#define SEG_H01_MASK 0xd0
-#define SEG_H10_MASK 0xe0
-
-namespace {
-  void
-  writeSegment(uint8_t mask, uint8_t value) {
-    GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK | value;
-    GPIOA->ODR = (GPIOA->ODR & ~0xff) | mask | value;
-    GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK | value;
-    GPIOA->ODR = (GPIOA->ODR & ~0xff) | SEG_NONE_MASK;
-  }
-}
 
 void
-HAL_TIM3_PeriodElapsedCallback() {
+DcfTimer::onSecondStart() {
   // This is triggered by the counter being updated after reaching its maximum value.
   const auto secondOfDay_ { secondOfDay };
 
@@ -108,32 +113,13 @@ HAL_TIM3_PeriodElapsedCallback() {
   writeSegment(SEG_M10_MASK, mm.quot);
   writeSegment(SEG_M01_MASK, mm.rem);
 
-  matrixSetTime(current_time);
-}
-
-void
-HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {
-  if (htim == &htim3) {
-    switch (htim->Channel) {
-      case HAL_TIM_ACTIVE_CHANNEL_1:
-        // This is triggered by the output compare at the 50% point.
-        HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
-        break;
-
-      case HAL_TIM_ACTIVE_CHANNEL_2:
-        HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
-        break;
-
-      default:
-        break;
-    }
-  }
+  matrixSetTime (current_time);
 }
 
 constexpr int secondCount = 59;
-
+constexpr int betaInvFactor = secondCount * (secondCount * secondCount - 1) / 12;
 static_assert(
-    static_cast<double>(secondCount * (secondCount * secondCount - 1) / 12) ==
+    static_cast<double>(betaInvFactor) ==
     secondCount * (secondCount * secondCount - 1.0) / 12.0);
 
 int errorTicks[secondCount] { };
@@ -143,90 +129,57 @@ int pulseEnd { 0 };
 int pulseIndex { -1 };
 
 void
-HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
-  if (htim == &htim3) {
-    auto &instance { *htim->Instance };
-    const auto ticksOfDay { secondOfDay * ticksPerSecond };
+DcfTimer::onPulse(bool start, uint32_t sampledValue) {
+  const auto sampledTicks { sampledValue + secondOfDay * ticksPerSecond };
 
-    switch (htim->Channel) {
-      case HAL_TIM_ACTIVE_CHANNEL_3: {
-        // This is the end of a 100/200ms time pulse.
-        pulseEnd = instance.CCR3 + ticksOfDay;
-        HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
-        break;
-      }
-      case HAL_TIM_ACTIVE_CHANNEL_4: {
-        // This is the start of a second as broadcast by the DCF sender.
-        const auto ccr4 { static_cast<int>(instance.CCR4) };
-        const auto oldSecondStart { secondStart };
-        const auto newSecondStart { ccr4 + ticksOfDay };
+  if (!start) {
+    // This is the end of a 100/200ms time pulse.
+    pulseEnd = sampledTicks;
+  } else {
+    // This is the start of a second as broadcast by the DCF sender.
+    const auto oldSecondStart { secondStart };
+    const auto newSecondStart { sampledTicks };
 
-        secondStart = newSecondStart;
+    secondStart = newSecondStart;
 
-        const int pulseLength { (pulseEnd - oldSecondStart) * 1000
-            / ticksPerSecond };
-        const int pulseDistance { (newSecondStart - oldSecondStart) * 1000
-            / ticksPerSecond };
+    const auto pulseLength { (pulseEnd - oldSecondStart) * 1000 / ticksPerSecond };
+    const auto pulseDistance { (newSecondStart - oldSecondStart) * 1000
+        / ticksPerSecond };
 
-        if (pulseDistance > 1750) {
-          if (pulseIndex == secondCount) {
-            int beta { 0 };
-            {
-              int x { -(secondCount - 1) / 2 };
-              for (auto const y : errorTicks) {
-                beta += x++ * y;
-              }
-            }
-            // error in ticks per second
-            beta /= secondCount * (secondCount * secondCount - 1) / 12;
-
-            instance.PSC = (instance.PSC * (ticksPerSecond + beta))
-                / ticksPerSecond;
-          }
-
-          minuteStart = secondStart;
-          pulseIndex = 0;
-        }
-
-        if (0 <= pulseIndex && pulseIndex < secondCount) {
-          const int error { secondStart - minuteStart
-              - pulseIndex * ticksPerSecond };
-
-          if (std::abs(error) < 200) {
-            errorTicks[pulseIndex] = error;
-            ++pulseIndex;
-          } else {
-            pulseIndex = -1;
+    if (pulseDistance > 1750) {
+      if (pulseIndex == secondCount) {
+        int beta { 0 };
+        {
+          int x { -(secondCount - 1) / 2 };
+          for (auto const y : errorTicks) {
+            beta += x++ * y;
           }
         }
+        // error in ticks per second
+        beta /= betaInvFactor;
 
-        if (pulseLength > 10) { // skip glitches
-          dcf_addBit(pulseLength, pulseDistance);
-        }
-
-        HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
-        break;
+        updatePrescaler([beta](uint32_t value) {
+            return (value * (ticksPerSecond + beta)) / ticksPerSecond;
+        });
       }
-      default:
-        break;
+
+      minuteStart = secondStart;
+      pulseIndex = 0;
+    }
+
+    if (0 <= pulseIndex && pulseIndex < secondCount) {
+      const int error { secondStart - minuteStart - pulseIndex * ticksPerSecond };
+
+      if (std::abs(error) < 200) {
+        errorTicks[pulseIndex] = error;
+        ++pulseIndex;
+      } else {
+        pulseIndex = -1;
+      }
+    }
+
+    if (pulseLength > 10) { // skip glitches
+      dcf_addBit(pulseLength, pulseDistance);
     }
   }
-}
-
-void
-main_initialize() {
-  HAL_GPIO_WritePin(LAMP_TEST_GPIO_Port, LAMP_TEST_Pin, GPIO_PIN_SET);
-
-  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
-
-  HAL_TIM_Base_Start_IT(&htim3);
-  HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_1);
-  HAL_TIM_OC_Start_IT(&htim3, TIM_CHANNEL_2);
-  HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_3);
-  HAL_TIM_IC_Start_IT(&htim3, TIM_CHANNEL_4);
-}
-
-void
-main_loop() {
-  vTaskSuspend(nullptr);
 }
