@@ -24,10 +24,20 @@
 #include <cstdlib>
 #include <ctime>
 
-constexpr int ticksPerSecond { 1125 };
-
 namespace {
+  constexpr int secondCount { 59 };
+  constexpr int betaInvFactor { secondCount * (secondCount * secondCount - 1)
+      / 12 };
+  static_assert(
+      static_cast<double>(betaInvFactor) ==
+      secondCount * (secondCount * secondCount - 1.0) / 12.0);
+
   class DcfTimer: public IDcfTimer {
+    static constexpr uint16_t zeroPulseTicks { ticksPerSecond / 10 }; // 100ms
+    static constexpr uint16_t onePulseTicks { ticksPerSecond / 5 }; // 200ms
+    static constexpr uint16_t maxPulseError { ticksPerSecond / 22 }; // 45ms
+    static constexpr uint16_t maxSecondError { maxPulseError };
+
     static DcfTimer instance;
 
     DcfTimer() {
@@ -40,13 +50,17 @@ namespace {
 
   public:
     virtual void
-    onSecondStart();
+    onSecondStart(uint32_t secondOfDay);
 
     virtual void
-    onPulse(bool start, uint32_t sampledValue);
-  };
+    onPulse(bool start, uint32_t secondOfDay, uint16_t tick);
 
-  uint32_t secondOfDay { (12 * 60 + 34) * 60 + 56 };
+    void
+    processDcfMessage(DCF dcf);
+
+    void
+    processErrors(int16_t (&errorTicks)[secondCount]);
+  };
 }
 
 DcfTimer DcfTimer::instance;
@@ -63,43 +77,58 @@ std::tm current_time {
   .tm_isdst = -1};
 
 void
-dcf_handleTelegram(DCF const *dcf) {
-  if (dcf) {
-    const auto hours { 10 * dcf->hour10 + dcf->hour01 };
-    const auto minutes { 10 * dcf->minute10 + dcf->minute01 };
+DcfTimer::processDcfMessage(DCF dcf) {
+  const auto hours { 10 * dcf.hour10 + dcf.hour01 };
+  const auto minutes { 10 * dcf.minute10 + dcf.minute01 };
 
-    current_time.tm_mday = 10 * dcf->day10 + dcf->day01;
-    current_time.tm_mon = 10 * dcf->month10 + dcf->month01 - 1;
-    current_time.tm_year = 10 * dcf->year10 + dcf->year01 + 100;
-    current_time.tm_wday = dcf->weekday % 7;
-    current_time.tm_isdst = dcf->isMesz;
+  current_time.tm_mday = 10 * dcf.day10 + dcf.day01;
+  current_time.tm_mon = 10 * dcf.month10 + dcf.month01 - 1;
+  current_time.tm_year = 10 * dcf.year10 + dcf.year01 + 100;
+  current_time.tm_wday = dcf.weekday % 7;
+  current_time.tm_isdst = dcf.isMesz;
 
-    secondOfDay = (60 * hours + minutes) * 60;
-  }
+  setSecondOfDay((60 * hours + minutes) * 60);
 }
 
+void
+DcfTimer::processErrors(int16_t (&errorTicks)[secondCount]) {
+  int beta { 0 };
+  {
+    int x { (1 - secondCount) / 2 };
+    for (auto const y : errorTicks) {
+      beta += x++ * y;
+    }
+  }
+  // error in ticks per second
+  beta /= betaInvFactor;
+
+  updatePrescaler([beta](uint16_t value) {
+    return (value * (ticksPerSecond + beta)) / ticksPerSecond;
+  });
+}
 
 void
-DcfTimer::onSecondStart() {
+DcfTimer::onSecondStart(uint32_t secondOfDay) {
   // This is triggered by the counter being updated after reaching its maximum value.
-  const auto secondOfDay_ { secondOfDay };
 
-  secondOfDay = (secondOfDay + 1) % (24 * 60 * 60);
-
-  const auto minuteSecond { div(secondOfDay_, 60) };
+  const auto minuteSecond { div(secondOfDay, 60) };
   const auto minuteOfDay { minuteSecond.quot };
   const auto hourMinute { div(minuteOfDay, 60) };
   const auto hour { hourMinute.quot };
   const auto minute { hourMinute.rem };
-
   const auto hh { div(hour, 10) };
   const auto mm { div(minute, 10) };
+
+  writeSegment(SEG_H10_MASK, hh.quot);
+  writeSegment(SEG_H01_MASK, hh.rem);
+  writeSegment(SEG_M10_MASK, mm.quot);
+  writeSegment(SEG_M01_MASK, mm.rem);
 
   current_time.tm_sec = minuteSecond.rem;
   current_time.tm_min = minute;
   current_time.tm_hour = hour;
 
-  if (secondOfDay_ == 0) {
+  if (secondOfDay == 0) {
     current_time.tm_mday = -1;
     current_time.tm_mon = -1;
     current_time.tm_year = -1;
@@ -108,78 +137,70 @@ DcfTimer::onSecondStart() {
     current_time.tm_isdst = -1;
   }
 
-  writeSegment(SEG_H10_MASK, hh.quot);
-  writeSegment(SEG_H01_MASK, hh.rem);
-  writeSegment(SEG_M10_MASK, mm.quot);
-  writeSegment(SEG_M01_MASK, mm.rem);
-
   matrixSetTime (current_time);
 }
 
-constexpr int secondCount = 59;
-constexpr int betaInvFactor = secondCount * (secondCount * secondCount - 1) / 12;
-static_assert(
-    static_cast<double>(betaInvFactor) ==
-    secondCount * (secondCount * secondCount - 1.0) / 12.0);
-
-int errorTicks[secondCount] { };
-int minuteStart { -1 };
-int secondStart { 0 };
-int pulseEnd { 0 };
+int16_t errorTicks[secondCount] { };
+union {uint64_t bits; DCF dcf;}dcfMessage {.bits = 0};
+int minuteStartTick { -1 };
+uint32_t pulseStartTick { 0 };
 int pulseIndex { -1 };
 
 void
-DcfTimer::onPulse(bool start, uint32_t sampledValue) {
-  const auto sampledTicks { sampledValue + secondOfDay * ticksPerSecond };
+DcfTimer::onPulse(bool start, uint32_t secondOfDay, uint16_t tick) {
+  const uint32_t tickOfDay { secondOfDay * ticksPerSecond + tick };
 
   if (!start) {
     // This is the end of a 100/200ms time pulse.
-    pulseEnd = sampledTicks;
+    const auto pulseEndTick { tickOfDay };
+    const auto pulseLength { static_cast<int32_t>(pulseEndTick - pulseStartTick) };
+    const auto isZero { std::abs(pulseLength - zeroPulseTicks) <= maxPulseError };
+    const auto isOne { std::abs(pulseLength - onePulseTicks) <= maxPulseError };
+
+    if ((isZero != isOne) && 0 <= pulseIndex) {
+      if (isOne) {
+        dcfMessage.bits |= uint64_t { 1 } << pulseIndex;
+      }
+
+      ++pulseIndex;
+    } else {
+      pulseIndex = -1;
+    }
   } else {
     // This is the start of a second as broadcast by the DCF sender.
-    const auto oldSecondStart { secondStart };
-    const auto newSecondStart { sampledTicks };
+    const auto oldPulseStartTick { pulseStartTick };
 
-    secondStart = newSecondStart;
+    pulseStartTick = tickOfDay;
 
-    const auto pulseLength { (pulseEnd - oldSecondStart) * 1000 / ticksPerSecond };
-    const auto pulseDistance { (newSecondStart - oldSecondStart) * 1000
-        / ticksPerSecond };
+    const int32_t pulseDistance(pulseStartTick - oldPulseStartTick);
+    const auto secondError { std::abs(pulseDistance - ticksPerSecond) };
+    const auto biSecondError { std::abs(pulseDistance - 2 * ticksPerSecond) };
+    const auto isSecond { secondError <= maxSecondError };
+    const auto isBiSecond { biSecondError <= maxSecondError };
 
-    if (pulseDistance > 1750) {
-      if (pulseIndex == secondCount) {
-        int beta { 0 };
-        {
-          int x { -(secondCount - 1) / 2 };
-          for (auto const y : errorTicks) {
-            beta += x++ * y;
+    if (isSecond != isBiSecond) {
+      if (isBiSecond) {
+        if (secondCount <= pulseIndex) {
+          if (dcfCheck(dcfMessage.dcf, pulseIndex)) {
+            processDcfMessage(dcfMessage.dcf);
           }
+
+          processErrors(errorTicks);
         }
-        // error in ticks per second
-        beta /= betaInvFactor;
 
-        updatePrescaler([beta](uint32_t value) {
-            return (value * (ticksPerSecond + beta)) / ticksPerSecond;
-        });
+        minuteStartTick = pulseStartTick;
+        dcfMessage.bits = 0;
+        pulseIndex = 0;
+        errorTicks[0] = 0;
       }
 
-      minuteStart = secondStart;
-      pulseIndex = 0;
-    }
+      if (isSecond && 0 <= pulseIndex && pulseIndex < secondCount) {
+        auto const tickOfMinute { pulseStartTick - minuteStartTick };
 
-    if (0 <= pulseIndex && pulseIndex < secondCount) {
-      const int error { secondStart - minuteStart - pulseIndex * ticksPerSecond };
-
-      if (std::abs(error) < 200) {
-        errorTicks[pulseIndex] = error;
-        ++pulseIndex;
-      } else {
-        pulseIndex = -1;
+        errorTicks[pulseIndex] = tickOfMinute - pulseIndex * ticksPerSecond;
       }
-    }
-
-    if (pulseLength > 10) { // skip glitches
-      dcf_addBit(pulseLength, pulseDistance);
+    } else {
+      pulseIndex = -1;
     }
   }
 }

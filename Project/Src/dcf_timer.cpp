@@ -12,32 +12,62 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+enum {
+  DCF_TIMER_SECOND_START = 1 << 16,
+  DCF_TIMER_PULSE_START = 1 << 17,
+  DCF_TIMER_PULSE_END = 1 << 18,
+
+  DCF_TIMER_MASK = DCF_TIMER_SECOND_START | DCF_TIMER_PULSE_START
+      | DCF_TIMER_PULSE_END
+};
+
 IDcfTimer *IDcfTimer::instancePtr { nullptr };
 auto &dcfTimerHandle { htim3 };
 
+IDcfTimer::~IDcfTimer() {
+}
+
 void
-IDcfTimer::updatePrescaler(const std::function<uint32_t
-(uint32_t)> &updater) {
+IDcfTimer::updatePrescaler(const std::function<uint16_t(uint16_t)> &updater) {
   auto &timer { *dcfTimerHandle.Instance };
 
   timer.PSC = updater(timer.PSC);
 }
 
-uint32_t
+uint16_t
 IDcfTimer::getPrescaler() const {
   return dcfTimerHandle.Instance->PSC;
 }
 
+constexpr uint32_t secondsPerDay { 24 * 60 * 60 };
+
 namespace {
+  struct Sample {
+    uint32_t secondOfDay;
+    uint16_t tick;
+  };
+
   TaskHandle_t dcfTimerTaskHandle;
-  uint32_t sampledPulseStart;
-  uint32_t sampledPulseEnd;
+
+  uint32_t secondOfDay { (12 * 60 + 34) * 60 + 56 };
+
+  Sample sampledPulseStart;
+  Sample sampledPulseEnd;
+}
+
+
+void
+IDcfTimer::setSecondOfDay(uint32_t updatedSecondOfDay) {
+  secondOfDay = updatedSecondOfDay;
 }
 
 void
 HAL_TIM3_PeriodElapsedCallback() {
 // This is triggered by the counter being updated after reaching its maximum value.
   BaseType_t xHigherPriorityTaskWoken { pdFALSE };
+
+  secondOfDay = (secondOfDay + 1) % secondsPerDay;
+
   xTaskNotifyFromISR(dcfTimerTaskHandle, DCF_TIMER_SECOND_START, eSetBits,
                      &xHigherPriorityTaskWoken);
   portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
@@ -71,7 +101,8 @@ HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
     switch (htim->Channel) {
       case HAL_TIM_ACTIVE_CHANNEL_3: {
         // This is the end of a 100/200ms time pulse.
-        sampledPulseEnd = instance.CCR3;
+        sampledPulseEnd.secondOfDay = secondOfDay;
+        sampledPulseEnd.tick = instance.CCR3;
         HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
         xTaskNotifyFromISR(dcfTimerTaskHandle, DCF_TIMER_PULSE_END, eSetBits,
                            &xHigherPriorityTaskWoken);
@@ -80,7 +111,8 @@ HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 
       case HAL_TIM_ACTIVE_CHANNEL_4: {
         // This is the start of a second as broadcast by the DCF sender.
-        sampledPulseStart = instance.CCR4;
+        sampledPulseStart.secondOfDay = secondOfDay;
+        sampledPulseStart.tick = instance.CCR4;
         HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
         xTaskNotifyFromISR(dcfTimerTaskHandle, DCF_TIMER_PULSE_START, eSetBits,
                            &xHigherPriorityTaskWoken);
@@ -117,15 +149,17 @@ dcfTimerFunc(void*) {
       auto &dcfTimer { *p };
 
       if (notifiedValue & DCF_TIMER_SECOND_START) {
-        dcfTimer.onSecondStart();
+        dcfTimer.onSecondStart(secondOfDay);
       }
 
       if (notifiedValue & DCF_TIMER_PULSE_START) {
-        dcfTimer.onPulse(true, sampledPulseStart);
+        dcfTimer.onPulse(true, sampledPulseStart.secondOfDay,
+                         sampledPulseStart.tick);
       }
 
       if (notifiedValue & DCF_TIMER_PULSE_END) {
-        dcfTimer.onPulse(false, sampledPulseEnd);
+        dcfTimer.onPulse(false, sampledPulseEnd.secondOfDay,
+                         sampledPulseEnd.tick);
       }
     }
   }

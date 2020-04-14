@@ -36,48 +36,11 @@ namespace {
   }
 }
 
-void
-dcf_addBit(unsigned short pulse, unsigned short delta) {
-  static union {
-    unsigned long long bits;
-    const DCFCheck check;
-    const DCF dcf;
-  } buffer = { bits: 0 };
+bool
+dcfCheck(DCF dcf, int offset) {
+  DCFCheck const &check { reinterpret_cast<DCFCheck&>(dcf) };
 
-  static signed char offset = -1;
-
-  const bool pulseOk = (50 <= pulse && pulse <= 250);
-  const bool deltaOk1 = (950 <= delta && delta <= 1050);
-  const bool deltaOk2 = (1950 <= delta && delta <= 2050);
-  const bool deltaOk = deltaOk1 | deltaOk2;
-  const bool isLast = deltaOk2;
-
-  if (pulseOk && deltaOk) {
-    if (0 <= offset && offset <= 60) {
-      if (pulse > 150) {
-        buffer.bits |= 1ull << offset;
-      }
-      ++offset;
-    } else {
-      offset = -1;
-      buffer.bits = 0;
-    }
-
-    if (isLast) {
-      if ((offset == 59 || (buffer.dcf.leapSecComing && offset == 60))
-          && (buffer.check.zero == 0) && (buffer.check.one == 1)
-          && (buffer.check.leapSecZero == 0) && !parity(buffer.check.minute)
-          && !parity(buffer.check.hour) && !parity(buffer.check.date)) {
-        dcf_handleTelegram(&buffer.dcf);
-      } else {
-        dcf_handleTelegram(nullptr);
-      }
-
-      offset = 0;
-      buffer.bits = 0;
-    }
-  } else {
-    offset = -1;
-    buffer.bits = 0;
-  }
+  return (offset == 59 || (dcf.leapSecComing && offset == 60))
+      && (check.zero == 0) && (check.one == 1) && (check.leapSecZero == 0)
+      && !parity(check.minute) && !parity(check.hour) && !parity(check.date);
 }

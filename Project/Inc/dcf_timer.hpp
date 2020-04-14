@@ -21,35 +21,30 @@ extern "C" {
 #ifdef __cplusplus
 }
 
-enum {
-  DCF_TIMER_SECOND_START = 1 << 16,
-  DCF_TIMER_PULSE_START = 1 << 17,
-  DCF_TIMER_PULSE_END = 1 << 18,
-
-  DCF_TIMER_MASK = DCF_TIMER_SECOND_START | DCF_TIMER_PULSE_START
-      | DCF_TIMER_PULSE_END
-};
-
 class IDcfTimer {
 protected:
   virtual
-  ~IDcfTimer() {
-  }
+  ~IDcfTimer();
 
 public:
+  static constexpr uint16_t ticksPerSecond { 1125 };
+
   static IDcfTimer *instancePtr;
 
   virtual void
-  onSecondStart() = 0;
+  onSecondStart(uint32_t secondOfDay) = 0;
 
   virtual void
-  onPulse(bool start, uint32_t sampledValue) = 0;
+  onPulse(bool start, uint32_t secondOfDay, uint16_t tick) = 0;
+
+  uint16_t
+  getPrescaler() const;
 
   void
-  updatePrescaler(const std::function<uint32_t(uint32_t)>&);
+  updatePrescaler(const std::function<uint16_t(uint16_t)>&);
 
-  uint32_t
-  getPrescaler() const;
+  void
+  setSecondOfDay(uint32_t secondOfDay);
 };
 
 #endif
