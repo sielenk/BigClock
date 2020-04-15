@@ -23,20 +23,19 @@ enum {
 
 IDcfTimer *IDcfTimer::instancePtr { nullptr };
 auto &dcfTimerHandle { htim3 };
+auto &dcfTimer { *TIM3 };
 
 IDcfTimer::~IDcfTimer() {
 }
 
-void
-IDcfTimer::updatePrescaler(const std::function<uint16_t(uint16_t)> &updater) {
-  auto &timer { *dcfTimerHandle.Instance };
-
-  timer.PSC = updater(timer.PSC);
-}
-
 uint16_t
 IDcfTimer::getPrescaler() const {
-  return dcfTimerHandle.Instance->PSC;
+  return dcfTimer.PSC;
+}
+
+void
+IDcfTimer::setPrescaler(uint16_t newPrescalerValue) {
+  dcfTimer.PSC = newPrescalerValue;
 }
 
 constexpr uint32_t secondsPerDay { 24 * 60 * 60 };
@@ -49,16 +48,21 @@ namespace {
 
   TaskHandle_t dcfTimerTaskHandle;
 
+  int16_t phaseAdjustment { 0 };
   uint32_t secondOfDay { (12 * 60 + 34) * 60 + 56 };
 
   Sample sampledPulseStart;
   Sample sampledPulseEnd;
 }
 
-
 void
 IDcfTimer::setSecondOfDay(uint32_t updatedSecondOfDay) {
   secondOfDay = updatedSecondOfDay;
+}
+
+void
+IDcfTimer::adjustPhase(int16_t newPhaseAdjustment) {
+  phaseAdjustment = newPhaseAdjustment;
 }
 
 void
@@ -80,6 +84,11 @@ HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {
       case HAL_TIM_ACTIVE_CHANNEL_1:
         // This is triggered by the output compare at the 50% point.
         HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+
+        if (phaseAdjustment != 0) {
+          dcfTimer.CNT += phaseAdjustment;
+          phaseAdjustment = 0;
+        }
         break;
 
       case HAL_TIM_ACTIVE_CHANNEL_2:
@@ -95,14 +104,13 @@ HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim) {
 void
 HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
   if (htim == &dcfTimerHandle) {
-    auto &instance { *htim->Instance };
     BaseType_t xHigherPriorityTaskWoken { pdFALSE };
 
     switch (htim->Channel) {
       case HAL_TIM_ACTIVE_CHANNEL_3: {
         // This is the end of a 100/200ms time pulse.
         sampledPulseEnd.secondOfDay = secondOfDay;
-        sampledPulseEnd.tick = instance.CCR3;
+        sampledPulseEnd.tick = dcfTimer.CCR3;
         HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
         xTaskNotifyFromISR(dcfTimerTaskHandle, DCF_TIMER_PULSE_END, eSetBits,
                            &xHigherPriorityTaskWoken);
@@ -112,7 +120,7 @@ HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
       case HAL_TIM_ACTIVE_CHANNEL_4: {
         // This is the start of a second as broadcast by the DCF sender.
         sampledPulseStart.secondOfDay = secondOfDay;
-        sampledPulseStart.tick = instance.CCR4;
+        sampledPulseStart.tick = dcfTimer.CCR4;
         HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
         xTaskNotifyFromISR(dcfTimerTaskHandle, DCF_TIMER_PULSE_START, eSetBits,
                            &xHigherPriorityTaskWoken);

@@ -41,7 +41,7 @@ public:
   getPrescaler() const;
 
   void
-  updatePrescaler(const std::function<uint16_t(uint16_t)>&);
+  setPrescaler(uint16_t newPrescalerValue);
 
   void
   setSecondOfDay(uint32_t secondOfDay);

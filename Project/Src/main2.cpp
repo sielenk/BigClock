@@ -59,7 +59,7 @@ namespace {
     processDcfMessage(DCF dcf);
 
     void
-    processErrors(int16_t (&errorTicks)[secondCount]);
+    processPulseStartTicks(uint32_t (&pulseStartTicks)[secondCount]);
   };
 }
 
@@ -91,20 +91,18 @@ DcfTimer::processDcfMessage(DCF dcf) {
 }
 
 void
-DcfTimer::processErrors(int16_t (&errorTicks)[secondCount]) {
-  int beta { 0 };
+DcfTimer::processPulseStartTicks(uint32_t (&pulseStartTicks)[secondCount]) {
+  int32_t beta { 0 };
   {
     int x { (1 - secondCount) / 2 };
-    for (auto const y : errorTicks) {
+    for (auto const y : pulseStartTicks) {
       beta += x++ * y;
     }
   }
-  // error in ticks per second
-  beta /= betaInvFactor;
 
-  updatePrescaler([beta](uint16_t value) {
-    return (value * (ticksPerSecond + beta)) / ticksPerSecond;
-  });
+  setPrescaler(
+      (getPrescaler() * static_cast<int64_t>(beta))
+          / (ticksPerSecond * betaInvFactor));
 }
 
 void
@@ -140,9 +138,8 @@ DcfTimer::onSecondStart(uint32_t secondOfDay) {
   matrixSetTime (current_time);
 }
 
-int16_t errorTicks[secondCount] { };
+uint32_t pulseStartTicks[secondCount] { };
 union {uint64_t bits; DCF dcf;}dcfMessage {.bits = 0};
-int minuteStartTick { -1 };
 uint32_t pulseStartTick { 0 };
 int pulseIndex { -1 };
 
@@ -185,19 +182,16 @@ DcfTimer::onPulse(bool start, uint32_t secondOfDay, uint16_t tick) {
             processDcfMessage(dcfMessage.dcf);
           }
 
-          processErrors(errorTicks);
+          processPulseStartTicks(pulseStartTicks);
         }
 
-        minuteStartTick = pulseStartTick;
         dcfMessage.bits = 0;
         pulseIndex = 0;
-        errorTicks[0] = 0;
+        pulseStartTicks[0] = pulseStartTick;
       }
 
       if (isSecond && 0 <= pulseIndex && pulseIndex < secondCount) {
-        auto const tickOfMinute { pulseStartTick - minuteStartTick };
-
-        errorTicks[pulseIndex] = tickOfMinute - pulseIndex * ticksPerSecond;
+        pulseStartTicks[pulseIndex] = pulseStartTick;
       }
     } else {
       pulseIndex = -1;
