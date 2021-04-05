@@ -45,6 +45,9 @@ public:
 
   void
   setSecondOfDay(uint32_t secondOfDay);
+
+  void
+  adjustPhase(int16_t phaseDifference);
 };
 
 #endif
