@@ -1,12 +1,12 @@
 /**
   ******************************************************************************
-  * File Name          : TIM.c
-  * Description        : This file provides code for the configuration
-  *                      of the TIM instances.
+  * @file    tim.c
+  * @brief   This file provides code for the configuration
+  *          of the TIM instances.
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under Ultimate Liberty license
@@ -30,10 +30,18 @@ TIM_HandleTypeDef htim3;
 /* TIM2 init function */
 void MX_TIM2_Init(void)
 {
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
   TIM_OC_InitTypeDef sConfigOC = {0};
 
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
@@ -67,17 +75,28 @@ void MX_TIM2_Init(void)
   {
     Error_Handler();
   }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
   HAL_TIM_MspPostInit(&htim2);
 
 }
 /* TIM3 init function */
 void MX_TIM3_Init(void)
 {
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
   TIM_OC_InitTypeDef sConfigOC = {0};
   TIM_IC_InitTypeDef sConfigIC = {0};
 
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 63946;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
@@ -134,6 +153,9 @@ void MX_TIM3_Init(void)
   {
     Error_Handler();
   }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
 
 }
 
@@ -159,10 +181,10 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* tim_baseHandle)
   /* USER CODE END TIM3_MspInit 0 */
     /* TIM3 clock enable */
     __HAL_RCC_TIM3_CLK_ENABLE();
-  
+
     __HAL_RCC_GPIOB_CLK_ENABLE();
-    /**TIM3 GPIO Configuration    
-    PB1     ------> TIM3_CH4 
+    /**TIM3 GPIO Configuration
+    PB1     ------> TIM3_CH4
     */
     GPIO_InitStruct.Pin = DCF_IN_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
@@ -186,10 +208,10 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef* timHandle)
   /* USER CODE BEGIN TIM2_MspPostInit 0 */
 
   /* USER CODE END TIM2_MspPostInit 0 */
-  
+
     __HAL_RCC_GPIOB_CLK_ENABLE();
-    /**TIM2 GPIO Configuration    
-    PB11     ------> TIM2_CH4 
+    /**TIM2 GPIO Configuration
+    PB11     ------> TIM2_CH4
     */
     GPIO_InitStruct.Pin = BLANK_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -226,9 +248,9 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* tim_baseHandle)
   /* USER CODE END TIM3_MspDeInit 0 */
     /* Peripheral clock disable */
     __HAL_RCC_TIM3_CLK_DISABLE();
-  
-    /**TIM3 GPIO Configuration    
-    PB1     ------> TIM3_CH4 
+
+    /**TIM3 GPIO Configuration
+    PB1     ------> TIM3_CH4
     */
     HAL_GPIO_DeInit(DCF_IN_GPIO_Port, DCF_IN_Pin);
 
@@ -238,7 +260,7 @@ void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* tim_baseHandle)
 
   /* USER CODE END TIM3_MspDeInit 1 */
   }
-} 
+}
 
 /* USER CODE BEGIN 1 */
 

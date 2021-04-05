@@ -1,12 +1,12 @@
 /**
   ******************************************************************************
-  * File Name          : gpio.c
-  * Description        : This file provides code for the configuration
-  *                      of all used GPIO pins.
+  * @file    gpio.c
+  * @brief   This file provides code for the configuration
+  *          of all used GPIO pins.
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
+  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
   * All rights reserved.</center></h2>
   *
   * This software component is licensed by ST under Ultimate Liberty license
@@ -19,6 +19,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "gpio.h"
+
 /* USER CODE BEGIN 0 */
 
 /* USER CODE END 0 */
@@ -30,13 +31,13 @@
 
 /* USER CODE END 1 */
 
-/** Configure pins as 
-        * Analog 
-        * Input 
+/** Configure pins as
+        * Analog
+        * Input
         * Output
         * EVENT_OUT
         * EXTI
-        * Free pins are configured automatically as Analog (this feature is enabled through 
+        * Free pins are configured automatically as Analog (this feature is enabled through
         * the Code Generation settings)
 */
 void MX_GPIO_Init(void)
@@ -54,7 +55,7 @@ void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, BDC_A_Pin|BCD_B_Pin|BCD_C_Pin|BCD_D_Pin 
+  HAL_GPIO_WritePin(GPIOA, BDC_A_Pin|BCD_B_Pin|BCD_C_Pin|BCD_D_Pin
                           |SEG_H10_Pin|SEG_H01_Pin|SEG_M10_Pin|SEG_M01_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
@@ -67,18 +68,18 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PAPin PAPin PAPin PAPin 
+  /*Configure GPIO pins : PAPin PAPin PAPin PAPin
                            PAPin PAPin PAPin PAPin */
-  GPIO_InitStruct.Pin = BDC_A_Pin|BCD_B_Pin|BCD_C_Pin|BCD_D_Pin 
+  GPIO_InitStruct.Pin = BDC_A_Pin|BCD_B_Pin|BCD_C_Pin|BCD_D_Pin
                           |SEG_H10_Pin|SEG_H01_Pin|SEG_M10_Pin|SEG_M01_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB2 PB14 PB4 PB5 
+  /*Configure GPIO pins : PB2 PB14 PB4 PB5
                            PB8 PB9 */
-  GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_14|GPIO_PIN_4|GPIO_PIN_5 
+  GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_14|GPIO_PIN_4|GPIO_PIN_5
                           |GPIO_PIN_8|GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);

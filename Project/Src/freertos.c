@@ -25,7 +25,7 @@
 #include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */     
+/* USER CODE BEGIN Includes */
 #include "dcf_timer.hpp"
 #include "matrix.hpp"
 #include "main2.hpp"
@@ -57,10 +57,10 @@ uint32_t dcfTimerTaskBuffer[ 128 ];
 osStaticThreadDef_t dcfTimerTaskControlBlock;
 const osThreadAttr_t dcfTimerTask_attributes = {
   .name = "dcfTimerTask",
-  .stack_mem = &dcfTimerTaskBuffer[0],
-  .stack_size = sizeof(dcfTimerTaskBuffer),
   .cb_mem = &dcfTimerTaskControlBlock,
   .cb_size = sizeof(dcfTimerTaskControlBlock),
+  .stack_mem = &dcfTimerTaskBuffer[0],
+  .stack_size = sizeof(dcfTimerTaskBuffer),
   .priority = (osPriority_t) osPriorityRealtime,
 };
 /* Definitions for matrixTask */
@@ -69,10 +69,10 @@ uint32_t matrixTaskBuffer[ 256 ];
 osStaticThreadDef_t matrixTaskControlBlock;
 const osThreadAttr_t matrixTask_attributes = {
   .name = "matrixTask",
-  .stack_mem = &matrixTaskBuffer[0],
-  .stack_size = sizeof(matrixTaskBuffer),
   .cb_mem = &matrixTaskControlBlock,
   .cb_size = sizeof(matrixTaskControlBlock),
+  .stack_mem = &matrixTaskBuffer[0],
+  .stack_size = sizeof(matrixTaskBuffer),
   .priority = (osPriority_t) osPriorityNormal,
 };
 
@@ -123,6 +123,10 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
+
+  /* USER CODE BEGIN RTOS_EVENTS */
+  /* add events, ... */
+  /* USER CODE END RTOS_EVENTS */
 
 }
 
